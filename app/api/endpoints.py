@@ -35,6 +35,7 @@ templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["bot_username"] = BOT_USERNAME
 templates.env.globals["domain"] = DOMAIN
 templates.env.globals["logo_url"] = LOGO_URL
+templates.env.globals["admin_user_ids"] = ADMIN_USER_IDS
 
 # WebApp Authentication Helper
 def verify_telegram_webapp_data(token: str, init_data: str) -> dict | None:
@@ -69,6 +70,40 @@ def verify_telegram_webapp_data(token: str, init_data: str) -> dict | None:
     except Exception as e:
         logger.error(f"Error validating Telegram WebApp signature: {e}")
         return None
+
+# WebApp Profile Avatar proxy endpoint
+@router.get("/avatar/{user_id}")
+async def user_avatar_endpoint(user_id: int):
+    cache_key = f"user_avatar:{user_id}"
+    cached = await cache_service.get(cache_key)
+    if cached:
+        return Response(content=cached, media_type="image/jpeg")
+        
+    try:
+        photos = await bot.get_user_profile_photos(user_id=user_id, limit=1)
+        if photos and photos.photos:
+            # First photo group, medium-resolution size
+            sizes = photos.photos[0]
+            photo_size = sizes[1] if len(sizes) > 1 else sizes[0]
+            file_info = await bot.get_file(photo_size.file_id)
+            buffer = io.BytesIO()
+            await bot.download_file(file_info.file_path, destination=buffer)
+            img_bytes = buffer.getvalue()
+            
+            # Cache it for 1 hour
+            await cache_service.set(cache_key, img_bytes, expire=3600)
+            return Response(content=img_bytes, media_type="image/jpeg")
+    except Exception as e:
+        logger.error(f"Error fetching Telegram avatar for user {user_id}: {e}")
+        
+    # Return placeholder SVG if avatar cannot be loaded
+    default_svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#64748B" width="96" height="96">'
+        '<circle cx="12" cy="8" r="4"/>'
+        '<path d="M12 14c-6.1 0-8 4-8 4v2h16v-2s-1.9-4-8-4z"/>'
+        '</svg>'
+    )
+    return Response(content=default_svg.encode("utf-8"), media_type="image/svg+xml")
 
 # Pydantic schema for WebApp auth payload
 class WebAppAuthRequest(BaseModel):
@@ -148,6 +183,11 @@ async def homepage_view(request: Request, db: AsyncSession = Depends(get_db)):
             request.session.clear()
             return templates.TemplateResponse(request=request, name="index.html")
 
+        # If the user is an administrator, redirect immediately to the admin panel
+        is_admin = user_id in ADMIN_USER_IDS
+        if is_admin:
+            return RedirectResponse(url=f"/admin?token={SECRET_KEY}", status_code=303)
+
         # Query all images uploaded by this user
         stmt = select(Image).where(Image.uploaded_by == user_id).order_by(Image.created_at.desc())
         res = await db.execute(stmt)
@@ -157,27 +197,61 @@ async def homepage_view(request: Request, db: AsyncSession = Depends(get_db)):
         stmt_lifetime = select(func.count(Image.id)).where(Image.uploaded_by == user_id)
         lifetime_uploads = (await db.execute(stmt_lifetime)).scalar() or 0
         
-        # Query daily uploads
+        # Query total storage space used by this user
+        stmt_storage = select(func.sum(Image.file_size)).where(Image.uploaded_by == user_id)
+        total_storage_bytes = (await db.execute(stmt_storage)).scalar() or 0
+        
+        # Query daily uploads count
         day_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
         stmt_daily = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= day_ago)
         daily_count = (await db.execute(stmt_daily)).scalar() or 0
         
-        is_admin = user_id in ADMIN_USER_IDS
+        # Query the oldest upload in the last 24h to calculate countdown
+        stmt_oldest = select(Image.created_at).where(
+            Image.uploaded_by == user_id, 
+            Image.created_at >= day_ago
+        ).order_by(Image.created_at.asc()).limit(1)
+        oldest_time = (await db.execute(stmt_oldest)).scalar()
+        
+        countdown_seconds = 0
+        if oldest_time:
+            if oldest_time.tzinfo is None:
+                oldest_time = oldest_time.replace(tzinfo=datetime.timezone.utc)
+            reset_time = oldest_time + datetime.timedelta(days=1)
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            countdown_seconds = max(0, int((reset_time - now_utc).total_seconds()))
+            
+        # Group images by year
+        images_by_year = {}
+        for img in images:
+            year = img.created_at.year
+            if year not in images_by_year:
+                images_by_year[year] = []
+            images_by_year[year].append(img)
+            
+        # Sort years descending
+        sorted_years = sorted(images_by_year.keys(), reverse=True)
+        images_grouped = [(year, images_by_year[year]) for year in sorted_years]
+        
         user_stats = {
             "lifetime_uploads": lifetime_uploads,
             "daily_uploads": daily_count,
-            "limit": "Unlimited" if is_admin else USER_LIMIT,
-            "remaining": "Unlimited" if is_admin else max(0, USER_LIMIT - daily_count),
-            "role": "👑 Administrator" if is_admin else "👤 Standard User"
+            "limit": USER_LIMIT,
+            "remaining": max(0, USER_LIMIT - daily_count),
+            "role": "👤 Standard User",
+            "total_storage_bytes": total_storage_bytes,
+            "countdown_seconds": countdown_seconds
         }
         
         return templates.TemplateResponse(
             request=request,
             name="dashboard.html",
             context={
+                "images_grouped": images_grouped,
                 "images": images,
                 "user_stats": user_stats,
                 "username": request.session.get("username", "User"),
+                "avatar_url": f"/avatar/{user_id}",
                 "token": SECRET_KEY
             }
         )
@@ -621,12 +695,9 @@ async def api_user_delete_image(
     if image.uploaded_by != user_id and not is_admin:
         raise HTTPException(status_code=403, detail="Forbidden. You do not own this image.")
         
-    await db.delete(image)
+    # Dissociate the image from user account instead of deleting it from storage
+    image.uploaded_by = None
     await db.commit()
-    
-    await cache_service.delete(f"image_cache:{slug}:full")
-    await cache_service.delete(f"image_cache:{slug}:thumb")
-    await cache_service.delete(f"msg_exists:{slug}")
     
     return {"success": True}
 

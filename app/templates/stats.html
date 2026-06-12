@@ -3,61 +3,67 @@
 {% block title %}Telemetry Statistics - PictureMania{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl w-full flex flex-col gap-6 relative z-10 px-2 sm:px-0">
+<div class="max-w-4xl w-full flex flex-col gap-6 relative z-10 px-4 sm:px-0 animate-fade-in">
     <!-- Back navigation -->
     <div class="flex">
-        <a href="/" class="btn-glass px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5">
-            <i class="fa-solid fa-arrow-left text-[10px]"></i>Back
+        <a href="/" class="btn-glass px-4 py-2 text-xs font-bold flex items-center gap-2 transition-all">
+            <i class="fa-solid fa-arrow-left text-[9px]"></i>Back Dashboard
         </a>
     </div>
 
     <!-- Minimal Header -->
-    <div>
-        <h1 class="font-outfit text-xl sm:text-2xl font-bold tracking-tight text-white glow-text">System Telemetry</h1>
-        <p class="text-xs text-[#64748B] mt-0.5">Live platform usage metrics and performance counters.</p>
+    <div class="flex flex-col gap-1.5">
+        <h1 class="font-outfit text-2xl sm:text-3xl font-extrabold tracking-tight text-white">System Telemetry</h1>
+        <p class="text-xs text-[#64748B]">Real-time hosting platform performance metrics and counter statistics.</p>
     </div>
 
-    <!-- Stats Summary Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="glass-card p-4 flex flex-col gap-2">
-            <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-sm">
-                <i class="fa-solid fa-images"></i>
+    <!-- Stats Summary Cards (Optimized 3-column grid) -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <!-- Total Hosted Card -->
+        <div class="glass-card p-6 border border-white/5 flex flex-col gap-4 bg-[#0a0c16]/30 hover:border-blue-500/20 transition-all duration-300">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <i class="fa-solid fa-images text-base"></i>
             </div>
-            <div>
-                <p class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Total Hosted</p>
-                <p class="font-outfit text-lg sm:text-xl font-bold text-white mt-0.5">{{ stats.total_uploads }} files</p>
-            </div>
-        </div>
-        
-        <div class="glass-card p-4 flex flex-col gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm">
-                <i class="fa-solid fa-eye"></i>
-            </div>
-            <div>
-                <p class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Total Views</p>
-                <p class="font-outfit text-lg sm:text-xl font-bold text-white mt-0.5">{{ stats.total_views }} views</p>
+            <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">Total Hosted Files</span>
+                <span class="font-outfit text-2xl font-extrabold text-white mt-1">{{ stats.total_uploads }}</span>
+                <p class="text-[10px] text-[#475569] mt-0.5">Images hosted on Telegram database</p>
             </div>
         </div>
         
-        <div class="glass-card p-4 flex flex-col gap-2">
-            <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-sm">
-                <i class="fa-solid fa-server"></i>
+        <!-- Total Views Card -->
+        <div class="glass-card p-6 border border-white/5 flex flex-col gap-4 bg-[#0a0c16]/30 hover:border-emerald-500/20 transition-all duration-300">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <i class="fa-solid fa-eye text-base"></i>
             </div>
-            <div>
-                <p class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Disk Usage</p>
-                <p class="font-outfit text-lg sm:text-xl font-bold text-white mt-0.5">{{ stats.total_storage_mb }} MB</p>
+            <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">Platform Views</span>
+                <span class="font-outfit text-2xl font-extrabold text-white mt-1">{{ stats.total_views }}</span>
+                <p class="text-[10px] text-[#475569] mt-0.5">Aggregated image views</p>
             </div>
         </div>
         
-        <div class="glass-card p-4 flex flex-col gap-2">
-            <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm">
-                <i class="fa-solid fa-bolt"></i>
+        <!-- Storage Card -->
+        <div class="glass-card p-6 border border-white/5 flex flex-col gap-4 bg-[#0a0c16]/30 hover:border-purple-500/20 transition-all duration-300">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <i class="fa-solid fa-server text-base"></i>
             </div>
-            <div>
-                <p class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Daily uploads</p>
-                <p class="font-outfit text-lg sm:text-xl font-bold text-white mt-0.5">{{ stats.daily_uploads }} files</p>
+            <div class="flex flex-col">
+                <span class="text-[9px] font-bold text-[#64748B] uppercase tracking-widest">Global Storage Used</span>
+                <span class="font-outfit text-2xl font-extrabold text-white mt-1">{{ stats.total_storage_mb }} MB</span>
+                <p class="text-[10px] text-[#475569] mt-0.5">Physical disk allocation size</p>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .animate-fade-in {
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
 {% endblock %}

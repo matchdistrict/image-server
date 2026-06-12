@@ -26,27 +26,6 @@
         scrollbar-width: none;  /* Firefox */
     }
 
-    /* Action bar on the card (Desktop hover, mobile always visible) */
-    .media-action-bar {
-        transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @media (min-width: 641px) {
-        .media-action-bar {
-            opacity: 0;
-            transform: translateY(4px);
-        }
-        .image-card:hover .media-action-bar {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    @media (max-width: 640px) {
-        .media-action-bar {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
     /* Custom Toast styles */
     #toast {
         visibility: hidden;
@@ -78,15 +57,22 @@
 {% endblock %}
 
 {% block content %}
+<!-- Full-Screen Drag-and-Drop overlay -->
+<div id="fullscreen-dropzone" class="fixed inset-0 bg-blue-600/10 backdrop-blur-md z-50 flex flex-col items-center justify-center border-4 border-dashed border-blue-500/40 m-4 rounded-3xl transition-all duration-300 opacity-0 pointer-events-none">
+    <div class="w-16 h-16 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 text-3xl mb-4 animate-bounce">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+    </div>
+    <h3 class="font-outfit text-lg font-bold text-white">Drop images to upload</h3>
+    <p class="text-xs text-[#94A3B8] mt-1">Supports PNG, JPG, JPEG, WEBP, GIF</p>
+</div>
+
 <div class="max-w-4xl w-full flex flex-col gap-6 relative z-10 px-4 sm:px-6">
     <!-- Profile / Upload Hero Section (Sleek Glassmorphic Grid Card) -->
     <div class="border-gradient-wrapper">
         <div class="border-gradient-card p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
             <div class="flex flex-col sm:flex-row items-center gap-4.5 text-center sm:text-left w-full md:w-auto">
-                <!-- Centered Avatar -->
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-500/10 shrink-0">
-                    <i class="fa-solid fa-user-astronaut"></i>
-                </div>
+                <!-- Telegram User Avatar -->
+                <img src="{{ avatar_url }}" alt="{{ username }}'s Avatar" class="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-blue-500/15 border border-white/10 shrink-0">
                 <!-- Stacked Info Area -->
                 <div class="flex flex-col gap-1 w-full min-w-0">
                     <div class="flex flex-col sm:flex-row items-center gap-2">
@@ -104,137 +90,87 @@
             
             <!-- Prominent CTA Upload Trigger Button -->
             <div class="w-full md:w-auto mt-2 md:mt-0">
-                <button onclick="switchTab('upload')" class="btn-cta text-white w-full md:w-auto px-6 py-3 text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10">
+                <button onclick="triggerFileUpload()" class="btn-cta text-white w-full md:w-auto px-6 py-3 text-xs font-bold tracking-widest uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10">
                     <i class="fa-solid fa-plus text-[10px]"></i>Upload image
                 </button>
+                <input type="file" id="file-input" class="hidden" accept="image/*" multiple>
             </div>
         </div>
     </div>
 
-    <!-- Tab Navigation (Fix Layout Clipping on narrow mobile screens) -->
+    <!-- Tab Navigation (Only Gallery and Telemetry Tabs) -->
     <div class="flex border-b border-white/5 gap-3 overflow-x-auto scrollbar-none whitespace-nowrap px-1">
         <button id="tab-gallery" onclick="switchTab('gallery')" class="tab-btn shrink-0 pb-3 text-xs sm:text-sm font-bold tracking-wider text-blue-400 border-b-2 border-blue-500 transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-images text-xs"></i>Gallery (<span id="gallery-count">{{ images|length }}</span>)
-        </button>
-        <button id="tab-upload" onclick="switchTab('upload')" class="tab-btn shrink-0 pb-3 text-xs sm:text-sm font-bold tracking-wider text-[#94A3B8] hover:text-white border-b-2 border-transparent transition-all flex items-center gap-1.5">
-            <i class="fa-solid fa-cloud-arrow-up text-xs"></i>Upload Box
         </button>
         <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn shrink-0 pb-3 text-xs sm:text-sm font-bold tracking-wider text-[#94A3B8] hover:text-white border-b-2 border-transparent transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-gauge-high text-xs"></i>Telemetry
         </button>
     </div>
 
-    <!-- Gallery Tab Content -->
+    <!-- Gallery Tab Content (Year-grouped tight grid style) -->
     <div id="content-gallery" class="tab-content active">
-        {% if images %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5" id="gallery-grid">
-            {% for img in images %}
-            <div class="glass-card image-card flex flex-col group border border-white/5 overflow-hidden rounded-2xl bg-[#0a0c16]/45" id="card-{{ img.slug }}">
-                <!-- Contain-scaled Image block -->
-                <div class="relative aspect-[4/3] bg-[#030408] flex items-center justify-center overflow-hidden border-b border-white/5">
-                    <img src="/thumb/{{ img.slug }}" alt="Hosted image" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]" loading="lazy">
-                    
-                    <!-- Touch-Friendly Actions Panel Bar -->
-                    <div class="media-action-bar absolute bottom-2.5 left-2.5 right-2.5 bg-black/70 backdrop-blur-md rounded-xl p-1 flex justify-around items-center border border-white/10 z-20">
-                        <a href="/i/{{ img.slug }}" target="_blank" class="w-10 h-10 rounded-lg hover:bg-white/10 text-white flex items-center justify-center transition-all text-xs" title="View details">
-                            <i class="fa-solid fa-eye text-sm"></i>
-                        </a>
-                        <button onclick="copyToClipboard('{{ domain }}/raw/{{ img.slug }}', 'Direct URL copied!')" class="w-10 h-10 rounded-lg hover:bg-white/10 text-blue-400 flex items-center justify-center transition-all text-xs" title="Copy Direct URL">
-                            <i class="fa-solid fa-link text-sm"></i>
-                        </button>
-                        <button onclick="deleteImage('{{ img.slug }}')" class="w-10 h-10 rounded-lg hover:bg-white/10 text-rose-400 flex items-center justify-center transition-all text-xs" title="Delete Image">
-                            <i class="fa-solid fa-trash-can text-xs"></i>
-                        </button>
-                    </div>
+        {% if images_grouped %}
+            {% for year, year_images in images_grouped %}
+            <div class="mb-8 last:mb-0" id="section-year-{{ year }}">
+                <!-- Year Header -->
+                <div class="flex items-center gap-3 mb-3.5 border-b border-white/5 pb-2">
+                    <h2 class="font-outfit text-xs font-extrabold text-white tracking-widest uppercase">{{ year }}</h2>
+                    <span class="text-[9px] text-[#64748B] font-bold">({{ year_images|length }} images)</span>
                 </div>
                 
-                <!-- Info Section -->
-                <div class="p-4 flex flex-col gap-2.5">
-                    <div class="flex justify-between items-center gap-2">
-                        <span class="font-mono text-[10px] font-bold text-white bg-white/5 px-2 py-0.5 rounded border border-white/5 truncate">
-                            {{ img.slug }}
-                        </span>
-                        <div class="flex items-center gap-1 text-[10px] text-[#94A3B8] shrink-0 font-medium">
-                            <i class="fa-regular fa-eye text-[9px]"></i>
-                            <span>{{ img.views }} views</span>
+                <!-- Compact Grid Layout (Fits many images on a single screen) -->
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5">
+                    {% for img in year_images %}
+                    <div class="relative aspect-square overflow-hidden rounded-xl bg-[#030408] border border-white/5 group" id="card-{{ img.slug }}">
+                        <!-- Thumbnail Image block -->
+                        <img src="/thumb/{{ img.slug }}" alt="Hosted thumbnail" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy">
+                        
+                        <!-- Hover Overlay Actions -->
+                        <div class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-between p-2.5 z-20">
+                            <!-- Image info -->
+                            <div class="flex flex-col gap-0.5 min-w-0">
+                                <span class="font-mono text-[9px] font-bold text-white truncate">{{ img.slug }}</span>
+                                <span class="text-[8px] text-[#64748B]">
+                                    {% if img.file_size >= 1048576 %}
+                                        {{ (img.file_size / 1048576)|round(2) }} MB
+                                    {% else %}
+                                        {{ (img.file_size / 1024)|round(0) }} KB
+                                    {% endif %}
+                                </span>
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="flex justify-around items-center border-t border-white/10 pt-2">
+                                <a href="/i/{{ img.slug }}" target="_blank" class="w-7 h-7 rounded bg-white/5 hover:bg-white/15 text-white flex items-center justify-center transition-all text-[10px]" title="View details">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                <button onclick="copyToClipboard('{{ domain }}/raw/{{ img.slug }}', 'Direct URL copied!')" class="w-7 h-7 rounded bg-white/5 hover:bg-white/15 text-blue-400 flex items-center justify-center transition-all text-[10px]" title="Copy Direct URL">
+                                    <i class="fa-solid fa-link"></i>
+                                </button>
+                                <button onclick="deleteImage('{{ img.slug }}')" class="w-7 h-7 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center transition-all text-[10px]" title="Delete Image">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="flex flex-col gap-1.5 text-[10px] text-[#64748B] border-t border-white/5 pt-2.5 mt-0.5">
-                        <div class="flex justify-between">
-                            <span>File Size:</span>
-                            <span class="text-[#94A3B8] font-bold">
-                                {% if img.file_size >= 1048576 %}
-                                    {{ (img.file_size / 1048576)|round(2) }} MB
-                                {% else %}
-                                    {{ (img.file_size / 1024)|round(1) }} KB
-                                {% endif %}
-                            </span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Uploaded:</span>
-                            <span class="text-[#94A3B8] font-bold">{{ img.created_at.strftime('%Y-%m-%d') }}</span>
-                        </div>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
             {% endfor %}
-        </div>
         {% else %}
-        <!-- Empty State -->
-        <div class="glass-card p-10 text-center flex flex-col items-center justify-center border border-white/5" id="gallery-empty-state">
-            <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg mb-3">
-                <i class="fa-regular fa-image"></i>
+            <!-- Empty State -->
+            <div class="glass-card p-10 text-center flex flex-col items-center justify-center border border-white/5" id="gallery-empty-state">
+                <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg mb-3">
+                    <i class="fa-regular fa-image"></i>
+                </div>
+                <h3 class="font-outfit text-sm font-bold text-white mb-1">No images hosted</h3>
+                <p class="text-xs text-[#64748B] max-w-xs mb-5">Your gallery is currently empty. Upload files to get started.</p>
+                <button onclick="triggerFileUpload()" class="btn-glass text-blue-400 px-4 py-2 text-xs font-bold uppercase transition-all">
+                    Upload Files
+                </button>
             </div>
-            <h3 class="font-outfit text-sm font-bold text-white mb-1">No images hosted</h3>
-            <p class="text-xs text-[#64748B] max-w-xs mb-5">Your gallery is currently empty. Upload files to get started.</p>
-            <button onclick="switchTab('upload')" class="btn-glass text-blue-400 px-4 py-2 text-xs font-bold uppercase transition-all">
-                Upload Files
-            </button>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 hidden" id="gallery-grid"></div>
         {% endif %}
-    </div>
-
-    <!-- Upload Tab Content -->
-    <div id="content-upload" class="tab-content">
-        <div class="max-w-xl mx-auto w-full flex flex-col gap-4">
-            <div class="border-gradient-wrapper" id="drop-zone-wrapper">
-                <div class="border-gradient-card p-6 sm:p-10 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white/[0.015]" id="drop-zone">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-500/10 to-purple-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-base mb-3.5 shadow-sm">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </div>
-                    <p class="font-outfit text-sm font-bold text-white mb-1 text-center">Drag files here or click to browse</p>
-                    <p class="text-[10px] text-[#64748B] mb-4 text-center font-medium">Supports PNG, JPG, JPEG, WEBP, GIF (Max 10MB)</p>
-                    <span class="btn-cta text-white px-4 py-2 text-xs font-bold tracking-wider uppercase transition-all">
-                        Browse Files
-                    </span>
-                    <input type="file" id="file-input" class="hidden" accept="image/*" multiple>
-                </div>
-            </div>
-
-            <div id="status-card" class="glass-card p-4 hidden flex items-center gap-3 border border-blue-500/20 bg-blue-500/5">
-                <div class="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0"></div>
-                <div>
-                    <p id="status-title" class="text-xs font-semibold text-white">Uploading...</p>
-                    <p id="status-text" class="text-[10px] text-[#94A3B8]">Sending payload to Telegram storage...</p>
-                </div>
-            </div>
-
-            <div id="result-card" class="glass-card p-4 sm:p-5 hidden flex flex-col gap-3 border border-emerald-500/20 bg-emerald-500/5">
-                <div class="flex items-center gap-2.5 border-b border-white/5 pb-2.5">
-                    <div class="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                        <i class="fa-solid fa-circle-check text-xs"></i>
-                    </div>
-                    <div>
-                        <p class="text-xs font-bold text-white">Upload Complete</p>
-                    </div>
-                </div>
-                <div id="results-container" class="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
-                    <!-- Dynamic content -->
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Telemetry Tab Content -->
@@ -258,35 +194,41 @@
                     </div>
                     {% if user_stats.limit != 'Unlimited' %}
                     <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5">
-                        <div id="quota-progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500"></div>
-                        <script>
-                            document.getElementById("quota-progress-bar").style.width = "{{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}%";
-                        </script>
+                        <div id="quota-progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500" style="width: {{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}%;"></div>
                     </div>
-                    <div class="text-[9px] text-[#64748B] flex justify-between">
-                        <span>{{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}% Used</span>
-                        <span>{{ user_stats.remaining }} remaining</span>
+                    <div class="text-[9px] text-[#64748B] flex flex-col gap-1.5 mt-1">
+                        <div class="flex justify-between">
+                            <span>{{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}% Used</span>
+                            <span>{{ user_stats.remaining }} remaining</span>
+                        </div>
+                        {% if user_stats.countdown_seconds > 0 %}
+                        <div class="flex justify-between text-blue-400 border-t border-white/5 pt-1.5 font-medium">
+                            <span>Quota Renewal Countdown:</span>
+                            <span id="quota-countdown" data-countdown="{{ user_stats.countdown_seconds }}" class="font-mono">--:--:--</span>
+                        </div>
+                        {% endif %}
                     </div>
                     {% else %}
                     <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5">
                         <div class="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full w-full"></div>
                     </div>
-                    <div class="text-[9px] text-[#64748B]">
+                    <div class="text-[9px] text-[#64748B] flex justify-between mt-1">
                         <span>Administrator Unlimited Bypass Active</span>
+                        <span>Full Capacity</span>
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Profile Info Card -->
+            <!-- Profile & Storage Card -->
             <div class="glass-card p-5 border border-white/5 flex flex-col gap-3">
                 <div class="flex items-center gap-2.5 border-b border-white/5 pb-2.5">
                     <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                         <i class="fa-solid fa-circle-user text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="font-outfit text-xs font-bold text-white">Profile</h3>
-                        <p class="text-[9px] text-[#64748B]">Telegram authentication details</p>
+                        <h3 class="font-outfit text-xs font-bold text-white">Profile Details</h3>
+                        <p class="text-[9px] text-[#64748B]">Telegram session configuration</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 text-[10px] mt-0.5">
@@ -299,12 +241,29 @@
                         <span class="font-bold text-blue-400 truncate mt-0.5">{{ user_stats.role }}</span>
                     </div>
                     <div class="flex flex-col p-2 rounded-lg bg-white/[0.01] border border-white/5 col-span-2">
-                        <span class="text-[#64748B]">Total Lifetime Uploads</span>
-                        <span class="font-bold text-white mt-0.5" id="stats-lifetime-uploads">{{ user_stats.lifetime_uploads }} images</span>
+                        <span class="text-[#64748B]">Total Storage Space Used</span>
+                        <span class="font-bold text-white mt-0.5">
+                            {% if user_stats.total_storage_bytes >= 1048576 %}
+                                {{ (user_stats.total_storage_bytes / 1048576)|round(2) }} MB
+                            {% elif user_stats.total_storage_bytes >= 1024 %}
+                                {{ (user_stats.total_storage_bytes / 1024)|round(1) }} KB
+                            {% else %}
+                                {{ user_stats.total_storage_bytes }} Bytes
+                            {% endif %}
+                        </span>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Floating Upload Progress Alert (Replaces inline upload panel) -->
+<div id="floating-upload-status" class="fixed bottom-6 right-6 glass-card p-4 border border-blue-500/30 bg-[#07080c]/95 shadow-2xl shadow-blue-500/10 z-50 flex items-center gap-3.5 transition-all duration-300 translate-y-16 opacity-0 pointer-events-none max-w-sm">
+    <div class="w-6 h-6 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0"></div>
+    <div class="min-w-0">
+        <p id="upload-status-title" class="text-xs font-bold text-white truncate">Uploading...</p>
+        <p id="upload-status-text" class="text-[9px] text-[#94A3B8] truncate">Initializing file processing...</p>
     </div>
 </div>
 
@@ -313,6 +272,35 @@
 
 {% block scripts %}
 <script>
+    // --- QUOTA COUNTDOWN TIMER ---
+    const countdownEl = document.getElementById("quota-countdown");
+    if (countdownEl) {
+        let timeLeft = parseInt(countdownEl.getAttribute("data-countdown")) || 0;
+        function updateTimer() {
+            if (timeLeft <= 0) {
+                countdownEl.textContent = "00:00:00 (Updating)";
+                setTimeout(() => window.location.reload(), 1500);
+                return;
+            }
+            
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const seconds = timeLeft % 60;
+            
+            const formatted = 
+                String(hours).padStart(2, '0') + ":" + 
+                String(minutes).padStart(2, '0') + ":" + 
+                String(seconds).padStart(2, '0');
+                
+            countdownEl.textContent = formatted;
+            timeLeft--;
+        }
+        
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    }
+
+    // --- TAB NAVIGATION ---
     function switchTab(tabId) {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('text-blue-400', 'border-blue-500');
@@ -332,6 +320,7 @@
         }
     }
 
+    // --- TOAST NOTIFICATIONS ---
     function showToast(message) {
         const toast = document.getElementById("toast");
         toast.textContent = message;
@@ -339,6 +328,7 @@
         setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
     }
 
+    // --- CLIPBOARD UTILITIES ---
     function copyToClipboard(text, successMsg) {
         navigator.clipboard.writeText(text).then(() => {
             showToast(successMsg || 'URL copied to clipboard!');
@@ -353,8 +343,9 @@
         });
     }
 
+    // --- NON-DESTRUCTIVE DELETE ---
     async function deleteImage(slug) {
-        if (!confirm('Are you sure you want to permanently delete this image?')) {
+        if (!confirm('Are you sure you want to remove this image from your account? It will remain stored on Telegram servers.')) {
             return;
         }
 
@@ -363,73 +354,63 @@
             const data = await response.json();
             
             if (response.ok && data.success) {
-                showToast('Image deleted.');
+                showToast('Image removed from dashboard.');
                 const card = document.getElementById(`card-${slug}`);
                 if (card) {
                     card.style.transition = 'all 0.35s ease';
                     card.style.opacity = '0';
-                    card.style.transform = 'scale(0.92)';
+                    card.style.transform = 'scale(0.85)';
                     setTimeout(() => {
                         card.remove();
-                        const countEl = document.getElementById('gallery-count');
-                        let count = parseInt(countEl.textContent) || 0;
-                        count = Math.max(0, count - 1);
-                        countEl.textContent = count;
-                        
-                        const lifetimeEl = document.getElementById('stats-lifetime-uploads');
-                        if (lifetimeEl) {
-                            lifetimeEl.textContent = `${count} images`;
-                        }
-
-                        if (count === 0) {
-                            const grid = document.getElementById('gallery-grid');
-                            grid.classList.add('hidden');
-                            const emptyState = document.getElementById('gallery-empty-state');
-                            if (emptyState) {
-                                emptyState.classList.remove('hidden');
-                            }
-                        }
+                        window.location.reload(); // Reload to refresh year groupings & counters dynamically
                     }, 350);
                 }
             } else {
-                alert(`Error: ${data.detail || 'Could not delete image.'}`);
+                alert(`Error: ${data.detail || 'Could not remove image.'}`);
             }
         } catch (err) {
-            alert(`Network error deleting image: ${err}`);
+            alert(`Network error removing image: ${err}`);
         }
     }
 
-    // --- UPLOAD FLOW ---
-    const dropZone = document.getElementById('drop-zone');
+    // --- UPLOAD OPERATIONS ---
     const fileInput = document.getElementById('file-input');
-    const statusCard = document.getElementById('status-card');
-    const resultCard = document.getElementById('result-card');
-    const resultsContainer = document.getElementById('results-container');
-    const statusTitle = document.getElementById('status-title');
-    const statusText = document.getElementById('status-text');
+    const statusBox = document.getElementById('floating-upload-status');
+    const statusTitle = document.getElementById('upload-status-title');
+    const statusText = document.getElementById('upload-status-text');
 
-    dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('border-blue-500');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('border-blue-500');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('border-blue-500');
-        if (e.dataTransfer.files.length > 0) {
-            handleUploads(e.dataTransfer.files);
-        }
-    });
+    function triggerFileUpload() {
+        fileInput.click();
+    }
 
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
             handleUploads(fileInput.files);
+        }
+    });
+
+    // Full-Screen Drag-and-Drop listeners
+    const dropOverlay = document.getElementById('fullscreen-dropzone');
+    
+    window.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dropOverlay.classList.remove('opacity-0', 'pointer-events-none');
+    });
+
+    dropOverlay.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    dropOverlay.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropOverlay.classList.add('opacity-0', 'pointer-events-none');
+    });
+
+    dropOverlay.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropOverlay.classList.add('opacity-0', 'pointer-events-none');
+        if (e.dataTransfer.files.length > 0) {
+            handleUploads(e.dataTransfer.files);
         }
     });
 
@@ -443,16 +424,14 @@
             filesToUpload = files.slice(0, 10);
         }
         
-        resultCard.classList.add('hidden');
-        resultsContainer.innerHTML = '';
-        
         const totalFiles = filesToUpload.length;
-        let successCount = 0;
-        statusCard.classList.remove('hidden');
+        
+        // Show status card
+        statusBox.classList.remove('translate-y-16', 'opacity-0', 'pointer-events-none');
         
         for (let i = 0; i < totalFiles; i++) {
             const file = filesToUpload[i];
-            statusTitle.textContent = `Uploading image ${i + 1} of ${totalFiles}...`;
+            statusTitle.textContent = `Uploading ${i + 1} of ${totalFiles}`;
             statusText.textContent = `Processing "${file.name}"...`;
             
             const formData = new FormData();
@@ -466,152 +445,20 @@
                 
                 const data = await response.json();
                 
-                if (response.ok) {
-                    successCount++;
-                    addResultItem(file.name, data.view_url, data.raw_url);
-                    addCardToGalleryGrid(data.slug, file.name, data.raw_url, data.view_url, file.size);
-                } else {
-                    addErrorItem(file.name, data.detail || 'Upload failed.');
+                if (!response.ok) {
+                    alert(`Error uploading "${file.name}": ${data.detail || 'Upload failed.'}`);
                 }
             } catch (err) {
-                addErrorItem(file.name, `Network error: ${err}`);
+                alert(`Network error uploading "${file.name}": ${err}`);
             }
         }
         
-        statusCard.classList.add('hidden');
-        if (successCount > 0) {
-            resultCard.classList.remove('hidden');
-        }
-    }
-
-    function addResultItem(fileName, viewUrl, rawUrl) {
-        const uniqueId = 'res-' + Math.random().toString(36).substr(2, 9);
-        const itemHtml = `
-            <div class="flex flex-col gap-2 border-b border-white/5 pb-2.5 last:border-0 last:pb-0 text-[10px]">
-                <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                        <i class="fa-solid fa-image text-[10px]"></i>
-                    </div>
-                    <div class="min-w-0 flex-grow">
-                        <p class="font-semibold text-white truncate">${fileName}</p>
-                    </div>
-                    <a href="${viewUrl}" target="_blank" class="btn-glass text-white px-2 py-0.5 rounded font-bold shrink-0 flex items-center gap-0.5">
-                        Visit<i class="fa-solid fa-chevron-right text-[6px]"></i>
-                    </a>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-0 sm:pl-8">
-                    <div class="flex flex-col gap-0.5">
-                        <span class="text-[8px] font-bold text-[#64748B] uppercase tracking-wider">Preview Page</span>
-                        <div class="flex gap-1.5">
-                            <input type="text" id="${uniqueId}-view" value="${viewUrl}" readonly class="input-glass flex-grow px-2 py-0.5 text-[9px] font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
-                            <button onclick="copyToClipboard('${viewUrl}', 'Preview link copied!')" class="btn-glass text-blue-400 px-2 py-0.5 font-bold shrink-0">Copy</button>
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-0.5">
-                        <span class="text-[8px] font-bold text-[#64748B] uppercase tracking-wider">Direct Link</span>
-                        <div class="flex gap-1.5">
-                            <input type="text" id="${uniqueId}-raw" value="${rawUrl}" readonly class="input-glass flex-grow px-2 py-0.5 text-[9px] font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
-                            <button onclick="copyToClipboard('${rawUrl}', 'Direct image link copied!')" class="btn-glass text-blue-400 px-2 py-0.5 font-bold shrink-0">Copy</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        resultsContainer.insertAdjacentHTML('beforeend', itemHtml);
-    }
-
-    function addErrorItem(fileName, errorMessage) {
-        const itemHtml = `
-            <div class="flex flex-col gap-1 border-b border-white/5 pb-2.5 last:border-0 last:pb-0 text-[10px]">
-                <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
-                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
-                    </div>
-                    <div class="min-w-0 flex-grow">
-                        <p class="font-semibold text-white truncate">${fileName}</p>
-                        <p class="text-[9px] text-rose-400 font-medium">${errorMessage}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-        resultsContainer.insertAdjacentHTML('beforeend', itemHtml);
-    }
-
-    function formatBytes(bytes, decimals = 1) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-    }
-
-    function addCardToGalleryGrid(slug, fileName, rawUrl, viewUrl, sizeBytes) {
-        const grid = document.getElementById('gallery-grid');
-        const emptyState = document.getElementById('gallery-empty-state');
-        if (emptyState) emptyState.classList.add('hidden');
-        grid.classList.remove('hidden');
-        
-        const now = new Date();
-        const formattedDate = now.getFullYear() + '-' + 
-            String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-            String(now.getDate()).padStart(2, '0');
-
-        const cardHtml = `
-            <div class="glass-card image-card flex flex-col group border border-white/5 overflow-hidden rounded-2xl bg-[#0a0c16]/45" id="card-${slug}" style="opacity: 0; transform: translateY(10px); transition: all 0.4s ease;">
-                <div class="relative aspect-[4/3] bg-[#030408] flex items-center justify-center overflow-hidden border-b border-white/5">
-                    <img src="/thumb/${slug}" alt="Hosted image" class="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]" loading="lazy">
-                    <div class="media-action-bar absolute bottom-2.5 left-2.5 right-2.5 bg-black/70 backdrop-blur-md rounded-xl p-1 flex justify-around items-center border border-white/10 z-20">
-                        <a href="/i/${slug}" target="_blank" class="w-10 h-10 rounded-lg hover:bg-white/10 text-white flex items-center justify-center transition-all text-xs" title="View details">
-                            <i class="fa-solid fa-eye text-sm"></i>
-                        </a>
-                        <button onclick="copyToClipboard('${rawUrl}', 'Direct URL copied!')" class="w-10 h-10 rounded-lg hover:bg-white/10 text-blue-400 flex items-center justify-center transition-all text-xs" title="Copy Direct URL">
-                            <i class="fa-solid fa-link text-sm"></i>
-                        </button>
-                        <button onclick="deleteImage('${slug}')" class="w-10 h-10 rounded-lg hover:bg-white/10 text-rose-400 flex items-center justify-center transition-all text-xs" title="Delete Image">
-                            <i class="fa-solid fa-trash-can text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="p-4 flex flex-col gap-2.5">
-                    <div class="flex justify-between items-center gap-2">
-                        <span class="font-mono text-[10px] font-bold text-white bg-white/5 px-2 py-0.5 rounded border border-white/5 truncate">
-                            ${slug}
-                        </span>
-                        <div class="flex items-center gap-1 text-[10px] text-[#94A3B8] shrink-0 font-medium">
-                            <i class="fa-regular fa-eye text-[9px]"></i>
-                            <span>0 views</span>
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-1.5 text-[10px] text-[#64748B] border-t border-white/5 pt-2.5 mt-0.5">
-                        <div class="flex justify-between">
-                            <span>File Size:</span>
-                            <span class="text-[#94A3B8] font-bold">${formatBytes(sizeBytes)}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Uploaded:</span>
-                            <span class="text-[#94A3B8] font-bold">${formattedDate}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        grid.insertAdjacentHTML('afterbegin', cardHtml);
+        // Hide status box and reload dashboard
+        statusBox.classList.add('translate-y-16', 'opacity-0', 'pointer-events-none');
+        showToast('Images successfully hosted!');
         setTimeout(() => {
-            const newCard = document.getElementById(`card-${slug}`);
-            if (newCard) {
-                newCard.style.opacity = '1';
-                newCard.style.transform = 'translateY(0)';
-            }
-        }, 50);
-        
-        const countEl = document.getElementById('gallery-count');
-        const currentCount = parseInt(countEl.textContent) || 0;
-        countEl.textContent = currentCount + 1;
-        
-        const statsLifetime = document.getElementById('stats-lifetime-uploads');
-        if (statsLifetime) statsLifetime.textContent = `${currentCount + 1} images`;
+            window.location.reload();
+        }, 1000);
     }
 </script>
 {% endblock %}
