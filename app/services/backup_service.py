@@ -15,7 +15,7 @@ class BackupService:
         sql_lines = []
         sql_lines.append("-- TGCloud Database Backup SQL Dump")
         sql_lines.append(f"-- Generated: {datetime.datetime.now(datetime.timezone.utc).isoformat()}")
-        sql_lines.append("PRAGMA foreign_keys = OFF; -- SQLite support")
+        sql_lines.append("PRAGMA foreign_keys = OFF;")
         sql_lines.append("BEGIN TRANSACTION;")
         
         # 1. Banned Users Table
@@ -76,8 +76,17 @@ class BackupService:
             line_strip = line.strip()
             if not line_strip or line_strip.startswith("--"):
                 continue
+            
+            # Check if there is an inline comment to ignore for the semicolon check
+            check_line = line_strip
+            if "--" in line_strip:
+                parts = line_strip.split("--")
+                # Count single quotes in the first part to ensure the "--" is not inside a string literal
+                if parts[0].count("'") % 2 == 0:
+                    check_line = parts[0].strip()
+
             current_statement.append(line)
-            if line_strip.endswith(";"):
+            if check_line.endswith(";"):
                 statements.append("\n".join(current_statement))
                 current_statement = []
                 
