@@ -11,6 +11,7 @@ from app.database import Base, engine
 from app.api.endpoints import router as api_router, templates
 from app.bot.bot_instance import bot, dp
 from app.bot.handlers import router as bot_router
+from app.config import STORAGE_CHANNEL_ID
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,36 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database schema...")
     await init_db()
     
-    logger.info("Registering bot routers and starting Aiogram polling...")
+    logger.info("Registering bot routers...")
     dp.include_router(bot_router)
-    bot_task = asyncio.create_task(dp.start_polling(bot))
+    
+    # Verify bot credentials and STORAGE_CHANNEL_ID permissions on startup
+    try:
+        me = await bot.get_me()
+        logger.info(f"Bot authenticated successfully as @{me.username} ({me.first_name})")
+        
+        # Verify STORAGE_CHANNEL_ID access
+        if STORAGE_CHANNEL_ID:
+            try:
+                chat = await bot.get_chat(STORAGE_CHANNEL_ID)
+                logger.info(f"Storage channel verified: '{chat.title}' (ID: {STORAGE_CHANNEL_ID})")
+            except Exception as channel_err:
+                logger.error(
+                    f"CRITICAL: Bot has no access to storage channel ID {STORAGE_CHANNEL_ID}. "
+                    f"Please ensure the channel ID is correct, the bot is added as an Administrator, "
+                    f"and has permissions to post/edit messages. Error: {channel_err}"
+                )
+        else:
+            logger.error("CRITICAL: STORAGE_CHANNEL_ID is not configured in the environment variables!")
+    except Exception as auth_err:
+        logger.error(
+            f"CRITICAL: Failed to authenticate bot with BOT_TOKEN. "
+            f"Please ensure the BOT_TOKEN in your .env / environment variables is valid and not expired. "
+            f"Telegram API returned: {auth_err}"
+        )
+
+    logger.info("Starting Aiogram polling...")
+    bot_task = asyncio.create_task(dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types()))
     
     yield
     

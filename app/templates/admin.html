@@ -108,6 +108,81 @@
         </div>
     </div>
 
+    <!-- Database Backup & Restore Control -->
+    <div class="border-gradient-wrapper">
+        <div class="border-gradient-card p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div class="flex items-center gap-4 w-full lg:w-auto">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl shrink-0">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <h2 class="font-outfit text-base sm:text-lg font-bold text-white">Database Backup & Restoration</h2>
+                    <p class="text-xs text-[#64748B] mt-0.5">Download a database backup SQL script or upload a previously generated SQL dump.</p>
+                </div>
+            </div>
+            
+            <div class="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <a href="/admin/backup/download?token={{ token }}" class="btn-cta text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-h-[44px] w-full sm:w-auto">
+                    <i class="fa-solid fa-download"></i>Download SQL Backup
+                </a>
+                
+                <form action="/admin/backup/restore" method="POST" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto" onsubmit="return confirm('⚠️ WARNING: Restoring from a backup will overwrite the current database tables. Are you sure you want to proceed?');">
+                    <input type="hidden" name="token" value="{{ token }}">
+                    <label class="btn-glass text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px] shrink-0 w-full sm:w-auto">
+                        <i class="fa-solid fa-file-import"></i><span id="file-label-text">Select .sql file</span>
+                        <input type="file" name="file" accept=".sql" required class="hidden" onchange="updateFileLabel(this)">
+                    </label>
+                    <button type="submit" class="bg-emerald-600/90 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px] shrink-0 border border-emerald-500/20 shadow-lg shadow-emerald-500/10 w-full sm:w-auto">
+                        Restore SQL
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channel Protection & Security -->
+    <div class="border-gradient-wrapper">
+        <div class="border-gradient-card p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div class="flex items-center gap-4 w-full lg:w-auto">
+                <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-xl shrink-0">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <h2 class="font-outfit text-base sm:text-lg font-bold text-white">Channel Protection & Security</h2>
+                    <p class="text-xs text-[#64748B] mt-0.5">Toggle "Kick All" protection mode. When enabled, any new user attempting to join your public or private group/channel will be automatically declined or banned to secure the content.</p>
+                </div>
+            </div>
+            
+            <div class="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-black/40 border border-white/5 min-h-[44px]">
+                    <span class="text-xs font-semibold text-[#64748B] uppercase tracking-wider">Status:</span>
+                    {% if kick_all_enabled %}
+                    <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>ACTIVE (KICK ALL)
+                    </span>
+                    {% else %}
+                    <span class="text-xs font-bold text-[#64748B] flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-[#64748B]"></span>INACTIVE
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <form action="/admin/settings/toggle-kick-all" method="POST" class="shrink-0 w-full sm:w-auto">
+                    <input type="hidden" name="token" value="{{ token }}">
+                    {% if kick_all_enabled %}
+                    <button type="submit" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/10 px-5 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px]">
+                        Disable Protection
+                    </button>
+                    {% else %}
+                    <button type="submit" class="w-full btn-cta text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px]">
+                        Enable Protection
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Image Management Database with Gradient Borders -->
     <div class="border-gradient-wrapper">
         <div class="border-gradient-card p-4 sm:p-6 flex flex-col gap-6">
@@ -294,6 +369,15 @@ function copyApiKey() {
         document.body.removeChild(tempInput);
         alert("API Key copied to clipboard!");
     });
+}
+
+function updateFileLabel(input) {
+    const label = document.getElementById("file-label-text");
+    if (input.files && input.files[0]) {
+        label.textContent = input.files[0].name;
+    } else {
+        label.textContent = "Select .sql file";
+    }
 }
 </script>
 {% endblock %}

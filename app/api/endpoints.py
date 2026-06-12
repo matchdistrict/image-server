@@ -1,3 +1,4 @@
+import io
 import datetime
 import secrets
 import urllib.parse
@@ -18,6 +19,8 @@ from app.services.cache_service import cache_service
 from app.services.image_service import image_service
 from app.services.moderation_service import moderation_service
 from app.services.stats_service import stats_service
+from app.services.backup_service import backup_service
+from app.services.settings_service import settings_service
 from app.bot.bot_instance import bot
 from aiogram.types import BufferedInputFile
 
@@ -200,6 +203,9 @@ async def admin_dashboard_view(
     key_record = key_res.scalar()
     api_key = key_record.key if key_record else None
     
+    # Get kick_all setting
+    kick_all_enabled = await settings_service.is_kick_all_enabled(db)
+    
     return templates.TemplateResponse(
         request=request,
         name="admin.html",
@@ -208,9 +214,24 @@ async def admin_dashboard_view(
             "images": images,
             "token": token,
             "search": search,
-            "api_key": api_key
+            "api_key": api_key,
+            "kick_all_enabled": kick_all_enabled
         }
     )
+
+@router.post("/admin/settings/toggle-kick-all")
+async def admin_toggle_kick_all(
+    token: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    current = await settings_service.is_kick_all_enabled(db)
+    new_val = "false" if current else "true"
+    await settings_service.set_setting(db, "kick_all", new_val)
+    
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
 
 @router.post("/admin/delete/{slug}")
 async def admin_delete_image(
@@ -283,6 +304,57 @@ async def admin_revoke_api_key(
     
     return RedirectResponse(url=f"/admin?token={token}", status_code=303)
 
+@router.get("/admin/backup/download")
+async def admin_download_backup(
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    try:
+        sql_dump = await backup_service.generate_sql_backup(db)
+        return Response(
+            content=sql_dump,
+            media_type="application/sql",
+            headers={
+                "Content-Disposition": "attachment; filename=tgcloud_backup.sql"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate backup SQL script: {e}")
+        raise HTTPException(status_code=500, detail=f"Backup generation failed: {e}")
+
+@router.post("/admin/backup/restore")
+async def admin_restore_backup(
+    token: str = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    if not file.filename.endswith(".sql"):
+        raise HTTPException(status_code=400, detail="Only SQL backup files (.sql) are supported.")
+        
+    try:
+        content_bytes = await file.read()
+        sql_content = content_bytes.decode("utf-8")
+        
+        # Run restore transactions
+        await backup_service.restore_sql_backup(db, sql_content)
+        
+        # Invalidate memory/redis caches
+        if cache_service.redis:
+            await cache_service.redis.flushall()
+        else:
+            cache_service._local_cache.clear()
+    except Exception as e:
+        logger.error(f"Failed to execute SQL database restore: {e}")
+        raise HTTPException(status_code=500, detail=f"Database restore failed: {e}")
+        
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
+
 # ----------------- PROXY RAW SERVING -----------------
 
 @router.get("/raw/{slug}")
@@ -326,11 +398,11 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
         if not tg_file.file_path:
             raise ValueError("File path not available")
             
-        file_stream = await bot.download_file(tg_file.file_path)
-        if not file_stream:
+        buffer = io.BytesIO()
+        await bot.download_file(tg_file.file_path, destination=buffer)
+        image_bytes = buffer.getvalue()
+        if not image_bytes:
             raise ValueError("Failed to retrieve file contents")
-            
-        image_bytes = file_stream.read()
         
         # Optimize image with Pillow
         optimized_bytes = image_service.validate_and_optimize(image_bytes)
@@ -386,12 +458,12 @@ async def thumbnail_image_endpoint(slug: str, request: Request, db: AsyncSession
     try:
         # Fetch original from Telegram
         tg_file = await bot.get_file(image.file_id)
-        file_stream = await bot.download_file(tg_file.file_path)
-        if not file_stream:
+        buffer = io.BytesIO()
+        await bot.download_file(tg_file.file_path, destination=buffer)
+        original_bytes = buffer.getvalue()
+        if not original_bytes:
             raise ValueError("Failed to download file content")
             
-        original_bytes = file_stream.read()
-        
         # Generate 300px thumbnail
         thumb_bytes = image_service.generate_thumbnail(original_bytes)
         
