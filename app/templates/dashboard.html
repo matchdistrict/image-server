@@ -16,39 +16,58 @@
         from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
     }
-    /* Hover Glow effect for cards */
+    /* Hover Action Overlay for Desktop */
     .image-card {
         position: relative;
         overflow: hidden;
     }
-    .image-card:hover .action-overlay {
-        opacity: 1;
-        transform: translateY(0);
+    @media (min-width: 641px) {
+        .image-card:hover .action-overlay {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .action-overlay {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .mobile-actions-panel {
+            display: none;
+        }
     }
-    .action-overlay {
-        opacity: 0;
-        transform: translateY(10px);
-        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    /* Mobile-first touch action panel (always visible on phone UI) */
+    @media (max-width: 640px) {
+        .action-overlay {
+            display: none;
+        }
+        .mobile-actions-panel {
+            display: flex;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 8px;
+            margin-top: 8px;
+        }
     }
     /* Custom Toast styles */
     #toast {
         visibility: hidden;
-        min-width: 250px;
-        background-color: rgba(15, 23, 42, 0.9);
+        min-width: 200px;
+        background-color: rgba(7, 8, 12, 0.95);
         color: #fff;
         text-align: center;
         border-radius: 12px;
-        padding: 14px 24px;
+        padding: 10px 16px;
         position: fixed;
         z-index: 100;
         left: 50%;
-        bottom: 30px;
+        bottom: 24px;
         transform: translateX(-50%);
         border: 1px solid rgba(59, 130, 246, 0.3);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.15);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(12px);
-        transition: visibility 0s, opacity 0.3s linear;
+        transition: visibility 0s, opacity 0.25s linear;
         opacity: 0;
+        font-size: 11px;
+        font-weight: 600;
     }
     #toast.show {
         visibility: visible;
@@ -58,88 +77,80 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl w-full flex flex-col gap-6 sm:gap-8 relative z-10">
-    <!-- User Welcome Greeting Card -->
-    <div class="border-gradient-wrapper">
-        <div class="border-gradient-card p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div class="flex items-center gap-4 sm:gap-5 flex-col sm:flex-row text-center sm:text-left">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-blue-500/20">
-                    <i class="fa-solid fa-user-astronaut"></i>
-                </div>
-                <div>
-                    <h1 class="font-outfit text-2xl sm:text-3xl font-bold tracking-wide text-white glow-text">
-                        Welcome back, <span class="text-blue-400">{{ username }}</span>!
-                    </h1>
-                    <p class="text-xs sm:text-sm text-[#94A3B8] mt-1 flex items-center justify-center sm:justify-start gap-2">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/10">
-                            {{ user_stats.role }}
-                        </span>
-                        <span>• Managed via Telegram Link Auth</span>
-                    </p>
-                </div>
+<div class="max-w-4xl w-full flex flex-col gap-5 relative z-10 px-2 sm:px-0">
+    <!-- Clean Minimal Greeting Header -->
+    <div class="glass-card p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 border border-white/5">
+        <div class="flex items-center gap-3.5 flex-col sm:flex-row text-center sm:text-left">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-lg shadow-sm">
+                <i class="fa-solid fa-user-astronaut"></i>
             </div>
-            
-            <div class="flex items-center gap-3">
-                <button onclick="switchTab('upload')" class="btn-cta text-white px-5 py-2.5 text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-plus text-[10px]"></i>Upload New
-                </button>
+            <div>
+                <h1 class="font-outfit text-xl font-bold tracking-tight text-white flex items-center gap-2 justify-center sm:justify-start">
+                    Hello, {{ username }}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/10">
+                        {{ user_stats.role }}
+                    </span>
+                </h1>
+                <p class="text-[11px] text-[#64748B] mt-0.5">Session managed securely via Telegram Token Auth</p>
             </div>
         </div>
+        
+        <button onclick="switchTab('upload')" class="btn-cta text-white px-4 py-2 text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus text-[10px]"></i>Upload
+        </button>
     </div>
 
     <!-- Navigation Tabs -->
     <div class="flex border-b border-white/5 gap-2 px-1">
-        <button id="tab-gallery" onclick="switchTab('gallery')" class="tab-btn px-4 py-3 text-xs sm:text-sm font-semibold tracking-wider text-blue-400 border-b-2 border-blue-500 transition-all flex items-center gap-2">
-            <i class="fa-solid fa-images"></i>My Gallery (<span id="gallery-count">{{ images|length }}</span>)
+        <button id="tab-gallery" onclick="switchTab('gallery')" class="tab-btn px-3.5 py-2.5 text-xs font-bold tracking-wider text-blue-400 border-b-2 border-blue-500 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-images text-xs"></i>Gallery (<span id="gallery-count">{{ images|length }}</span>)
         </button>
-        <button id="tab-upload" onclick="switchTab('upload')" class="tab-btn px-4 py-3 text-xs sm:text-sm font-semibold tracking-wider text-[#94A3B8] hover:text-white border-b-2 border-transparent transition-all flex items-center gap-2">
-            <i class="fa-solid fa-cloud-arrow-up"></i>Upload Center
+        <button id="tab-upload" onclick="switchTab('upload')" class="tab-btn px-3.5 py-2.5 text-xs font-bold tracking-wider text-[#94A3B8] hover:text-white border-b-2 border-transparent transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-cloud-arrow-up text-xs"></i>Upload Box
         </button>
-        <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn px-4 py-3 text-xs sm:text-sm font-semibold tracking-wider text-[#94A3B8] hover:text-white border-b-2 border-transparent transition-all flex items-center gap-2">
-            <i class="fa-solid fa-gauge-high"></i>Telemetry
+        <button id="tab-stats" onclick="switchTab('stats')" class="tab-btn px-3.5 py-2.5 text-xs font-bold tracking-wider text-[#94A3B8] hover:text-white border-b-2 border-transparent transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-gauge-high text-xs"></i>Telemetry
         </button>
     </div>
-
-    <!-- TAB CONTENTS -->
 
     <!-- Gallery Tab -->
     <div id="content-gallery" class="tab-content active">
         {% if images %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" id="gallery-grid">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4" id="gallery-grid">
             {% for img in images %}
             <div class="glass-card image-card flex flex-col group border border-white/5 overflow-hidden" id="card-{{ img.slug }}">
-                <!-- Image Container with action overlay -->
+                <!-- Image Display -->
                 <div class="relative aspect-[4/3] bg-[#07080c] flex items-center justify-center overflow-hidden">
                     <img src="/thumb/{{ img.slug }}" alt="Hosted Image" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
                     
-                    <!-- Hover Actions Overlay -->
+                    <!-- Desktop Action Overlay (Hover-based) -->
                     <div class="action-overlay absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center gap-3">
-                        <a href="/i/{{ img.slug }}" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all" title="View details">
-                            <i class="fa-solid fa-eye text-sm"></i>
+                        <a href="/i/{{ img.slug }}" target="_blank" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all" title="View details">
+                            <i class="fa-solid fa-eye text-xs"></i>
                         </a>
-                        <button onclick="copyToClipboard('{{ domain }}/raw/{{ img.slug }}', 'Direct URL copied!')" class="w-9 h-9 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 flex items-center justify-center transition-all" title="Copy Direct URL">
-                            <i class="fa-solid fa-link text-sm"></i>
+                        <button onclick="copyToClipboard('{{ domain }}/raw/{{ img.slug }}', 'Direct URL copied!')" class="w-8 h-8 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 flex items-center justify-center transition-all" title="Copy Direct URL">
+                            <i class="fa-solid fa-link text-xs"></i>
                         </button>
-                        <button onclick="deleteImage('{{ img.slug }}')" class="w-9 h-9 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-all" title="Delete Image">
-                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        <button onclick="deleteImage('{{ img.slug }}')" class="w-8 h-8 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-all" title="Delete Image">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
                         </button>
                     </div>
                 </div>
                 
-                <!-- Info Section -->
-                <div class="p-4 flex flex-col gap-2.5">
-                    <div class="flex justify-between items-start">
-                        <span class="font-mono text-xs font-bold text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                <!-- Info Footer -->
+                <div class="p-3.5 flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono text-[10px] font-bold text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">
                             {{ img.slug }}
                         </span>
-                        <div class="flex items-center gap-1.5 text-xs text-[#94A3B8] font-medium">
-                            <i class="fa-regular fa-eye text-[10px]"></i>
+                        <div class="flex items-center gap-1 text-[10px] text-[#94A3B8]">
+                            <i class="fa-regular fa-eye text-[9px]"></i>
                             <span>{{ img.views }} views</span>
                         </div>
                     </div>
                     
-                    <div class="flex flex-col gap-1.5 border-t border-white/5 pt-2.5 mt-1">
-                        <div class="flex justify-between text-[10px] text-[#64748B]">
+                    <div class="flex flex-col gap-1 text-[9px] text-[#64748B] border-t border-white/5 pt-2 mt-0.5">
+                        <div class="flex justify-between">
                             <span>Size:</span>
                             <span class="text-[#94A3B8] font-semibold">
                                 {% if img.file_size >= 1048576 %}
@@ -149,10 +160,23 @@
                                 {% endif %}
                             </span>
                         </div>
-                        <div class="flex justify-between text-[10px] text-[#64748B]">
+                        <div class="flex justify-between">
                             <span>Uploaded:</span>
-                            <span class="text-[#94A3B8] font-semibold">{{ img.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <span class="text-[#94A3B8] font-semibold">{{ img.created_at.strftime('%Y-%m-%d') }}</span>
                         </div>
+                    </div>
+
+                    <!-- Mobile-only actions panel (always visible on touch screens instead of hover) -->
+                    <div class="mobile-actions-panel justify-between gap-2">
+                        <a href="/i/{{ img.slug }}" target="_blank" class="btn-glass flex-grow text-white py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-eye"></i> View
+                        </a>
+                        <button onclick="copyToClipboard('{{ domain }}/raw/{{ img.slug }}', 'Direct URL copied!')" class="btn-glass flex-grow text-blue-400 py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-link"></i> Link
+                        </button>
+                        <button onclick="deleteImage('{{ img.slug }}')" class="btn-glass flex-grow text-rose-400 hover:text-white py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i> Delete
+                        </button>
                     </div>
                 </div>
             </div>
@@ -160,136 +184,122 @@
         </div>
         {% else %}
         <!-- Empty State -->
-        <div class="glass-card p-12 text-center flex flex-col items-center justify-center border border-white/5" id="gallery-empty-state">
-            <div class="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400 text-2xl mb-4">
+        <div class="glass-card p-10 text-center flex flex-col items-center justify-center border border-white/5" id="gallery-empty-state">
+            <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 text-lg mb-3">
                 <i class="fa-regular fa-image"></i>
             </div>
-            <h3 class="font-outfit text-lg font-bold text-white mb-1">No images hosted yet</h3>
-            <p class="text-xs text-[#64748B] max-w-sm mb-6">Your hosted gallery is currently empty. Upload your first image and start sharing links immediately!</p>
-            <button onclick="switchTab('upload')" class="btn-glass text-blue-400 hover:text-white px-5 py-2.5 text-xs font-bold uppercase transition-all">
-                Go to Upload Center
+            <h3 class="font-outfit text-sm font-bold text-white mb-1">No images hosted</h3>
+            <p class="text-xs text-[#64748B] max-w-xs mb-5">Your gallery is currently empty. Upload files to get started.</p>
+            <button onclick="switchTab('upload')" class="btn-glass text-blue-400 px-4 py-2 text-xs font-bold uppercase transition-all">
+                Upload Files
             </button>
         </div>
-        
-        <!-- Hidden Grid for dynamic uploads -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 hidden" id="gallery-grid"></div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 hidden" id="gallery-grid"></div>
         {% endif %}
     </div>
 
     <!-- Upload Tab -->
     <div id="content-upload" class="tab-content">
-        <div class="max-w-2xl mx-auto w-full flex flex-col gap-5">
-            <!-- Upload Box -->
+        <div class="max-w-xl mx-auto w-full flex flex-col gap-4">
             <div class="border-gradient-wrapper" id="drop-zone-wrapper">
-                <div class="border-gradient-card p-6 sm:p-10 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white/[0.01]" id="drop-zone">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xl sm:text-2xl mb-4 shadow-lg shadow-blue-500/5">
+                <div class="border-gradient-card p-6 sm:p-10 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-white/[0.015]" id="drop-zone">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-500/10 to-purple-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-base mb-3.5">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                     </div>
-                    <p class="font-outfit text-base sm:text-lg font-bold text-white mb-1.5 text-center">Tap to upload or drag images here</p>
-                    <p class="text-[10px] sm:text-xs text-[#64748B] mb-5 text-center font-medium">Supports PNG, JPG, JPEG, WEBP, GIF (Max 10MB, up to 10 files)</p>
-                    <span class="btn-cta text-white px-6 py-2.5 text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-magnifying-glass text-[10px]"></i>Browse Files
+                    <p class="font-outfit text-sm font-bold text-white mb-1">Drag files here or click to browse</p>
+                    <p class="text-[10px] text-[#64748B] mb-4 text-center">Supports PNG, JPG, JPEG, WEBP, GIF (Max 10MB)</p>
+                    <span class="btn-cta text-white px-4 py-2 text-xs font-bold tracking-wider uppercase transition-all">
+                        Browse Files
                     </span>
                     <input type="file" id="file-input" class="hidden" accept="image/*" multiple>
                 </div>
             </div>
 
-            <!-- Upload progress/status -->
             <div id="status-card" class="glass-card p-4 hidden flex items-center gap-3 border border-blue-500/20 bg-blue-500/5">
-                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0"></div>
+                <div class="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0"></div>
                 <div>
-                    <p id="status-title" class="text-xs sm:text-sm font-semibold text-white">Uploading image...</p>
-                    <p id="status-text" class="text-[10px] sm:text-xs text-[#94A3B8]">Sending payload to Telegram storage channel...</p>
+                    <p id="status-title" class="text-xs font-semibold text-white">Uploading...</p>
+                    <p id="status-text" class="text-[10px] text-[#94A3B8]">Sending payload to Telegram storage...</p>
                 </div>
             </div>
 
-            <!-- Latest results from upload session -->
-            <div id="result-card" class="glass-card p-4 sm:p-6 hidden flex flex-col gap-4 border border-emerald-500/20 bg-emerald-500/5">
-                <div class="flex items-center gap-3 border-b border-white/5 pb-3">
-                    <div class="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                        <i class="fa-solid fa-circle-check"></i>
+            <div id="result-card" class="glass-card p-4 sm:p-5 hidden flex flex-col gap-3 border border-emerald-500/20 bg-emerald-500/5">
+                <div class="flex items-center gap-2.5 border-b border-white/5 pb-2.5">
+                    <div class="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-circle-check text-xs"></i>
                     </div>
                     <div>
-                        <p class="text-xs sm:text-sm font-bold text-white">Upload Complete</p>
-                        <p class="text-[10px] sm:text-xs text-[#94A3B8]">Images successfully processed and added to your gallery.</p>
+                        <p class="text-xs font-bold text-white">Upload Complete</p>
                     </div>
                 </div>
-                
-                <div id="results-container" class="flex flex-col gap-5 max-h-[400px] overflow-y-auto pr-1">
-                    <!-- Dynamic upload results will go here -->
+                <div id="results-container" class="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+                    <!-- Dynamic content -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Telemetry/Stats Tab -->
+    <!-- Telemetry Tab -->
     <div id="content-stats" class="tab-content">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Usage Card -->
-            <div class="glass-card p-6 border border-white/5 flex flex-col gap-4">
-                <div class="flex items-center gap-3 border-b border-white/5 pb-3">
-                    <div class="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Quota Status -->
+            <div class="glass-card p-5 border border-white/5 flex flex-col gap-3.5">
+                <div class="flex items-center gap-2.5 border-b border-white/5 pb-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <i class="fa-solid fa-gauge-high text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="font-outfit text-sm font-bold text-white">Daily Limits</h3>
-                        <p class="text-[10px] text-[#64748B]">24-Hour uploading quota status</p>
+                        <h3 class="font-outfit text-xs font-bold text-white">Daily Quota</h3>
+                        <p class="text-[9px] text-[#64748B]">24-Hour uploading stats</p>
                     </div>
                 </div>
                 <div class="flex flex-col gap-2">
                     <div class="flex justify-between text-xs font-semibold">
-                        <span class="text-[#94A3B8]">Quota Used</span>
+                        <span class="text-[#94A3B8]">Uploaded</span>
                         <span class="text-white">{{ user_stats.daily_uploads }} / {{ user_stats.limit }}</span>
                     </div>
                     {% if user_stats.limit != 'Unlimited' %}
-                    <!-- Progress Bar -->
-                    <div class="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-                        <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all duration-500" style="width: {{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}%"></div>
+                    <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5">
+                        <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500" style="width: {{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}%"></div>
                     </div>
-                    <div class="text-[10px] text-[#64748B] flex justify-between">
+                    <div class="text-[9px] text-[#64748B] flex justify-between">
                         <span>{{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}% Used</span>
                         <span>{{ user_stats.remaining }} remaining</span>
                     </div>
                     {% else %}
-                    <!-- Unlimited fallback progress bar -->
-                    <div class="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
+                    <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5">
                         <div class="bg-gradient-to-r from-blue-500 to-emerald-500 h-full rounded-full w-full"></div>
                     </div>
-                    <div class="text-[10px] text-[#64748B]">
+                    <div class="text-[9px] text-[#64748B]">
                         <span>Administrator Unlimited Bypass Active</span>
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Stats details list -->
-            <div class="glass-card p-6 border border-white/5 md:col-span-2 flex flex-col gap-4">
-                <div class="flex items-center gap-3 border-b border-white/5 pb-3">
-                    <div class="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                        <i class="fa-solid fa-database"></i>
+            <!-- Profile Info -->
+            <div class="glass-card p-5 border border-white/5 flex flex-col gap-3">
+                <div class="flex items-center gap-2.5 border-b border-white/5 pb-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                        <i class="fa-solid fa-circle-user text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="font-outfit text-sm font-bold text-white">Account Details</h3>
-                        <p class="text-[10px] text-[#64748B]">Metadata linked to Telegram session</p>
+                        <h3 class="font-outfit text-xs font-bold text-white">Profile</h3>
+                        <p class="text-[9px] text-[#64748B]">Telegram authentication details</p>
                     </div>
                 </div>
-                
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1 p-3 rounded-xl bg-white/[0.01] border border-white/5">
-                        <span class="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">Session Username</span>
-                        <span class="text-xs font-bold text-white mt-0.5">{{ username }}</span>
+                <div class="grid grid-cols-2 gap-3 text-[10px] mt-0.5">
+                    <div class="flex flex-col p-2 rounded-lg bg-white/[0.01] border border-white/5">
+                        <span class="text-[#64748B]">Username</span>
+                        <span class="font-bold text-white truncate mt-0.5">{{ username }}</span>
                     </div>
-                    <div class="flex flex-col gap-1 p-3 rounded-xl bg-white/[0.01] border border-white/5">
-                        <span class="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">Account Role</span>
-                        <span class="text-xs font-bold text-blue-400 mt-0.5">{{ user_stats.role }}</span>
+                    <div class="flex flex-col p-2 rounded-lg bg-white/[0.01] border border-white/5">
+                        <span class="text-[#64748B]">Role</span>
+                        <span class="font-bold text-blue-400 truncate mt-0.5">{{ user_stats.role }}</span>
                     </div>
-                    <div class="flex flex-col gap-1 p-3 rounded-xl bg-white/[0.01] border border-white/5">
-                        <span class="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">Lifetime Hostings</span>
-                        <span class="text-xs font-bold text-white mt-0.5" id="stats-lifetime-uploads">{{ user_stats.lifetime_uploads }} images</span>
-                    </div>
-                    <div class="flex flex-col gap-1 p-3 rounded-xl bg-white/[0.01] border border-white/5">
-                        <span class="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">Daily Usage</span>
-                        <span class="text-xs font-bold text-white mt-0.5" id="stats-daily-uploads">{{ user_stats.daily_uploads }} uploads today</span>
+                    <div class="flex flex-col p-2 rounded-lg bg-white/[0.01] border border-white/5 col-span-2">
+                        <span class="text-[#64748B]">Total Lifetime Uploads</span>
+                        <span class="font-bold text-white mt-0.5" id="stats-lifetime-uploads">{{ user_stats.lifetime_uploads }} images</span>
                     </div>
                 </div>
             </div>
@@ -297,13 +307,11 @@
     </div>
 </div>
 
-<!-- Toast Element -->
 <div id="toast">Link copied to clipboard!</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Tab switching controller
     function switchTab(tabId) {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('text-blue-400', 'border-blue-500');
@@ -323,7 +331,6 @@
         }
     }
 
-    // Custom toast indicator
     function showToast(message) {
         const toast = document.getElementById("toast");
         toast.textContent = message;
@@ -331,13 +338,10 @@
         setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
     }
 
-    // Copy to clipboard helper
     function copyToClipboard(text, successMsg) {
         navigator.clipboard.writeText(text).then(() => {
             showToast(successMsg || 'URL copied to clipboard!');
         }).catch(err => {
-            console.error('Failed to copy text: ', err);
-            // Fallback
             const input = document.createElement('input');
             input.value = text;
             document.body.appendChild(input);
@@ -348,42 +352,34 @@
         });
     }
 
-    // Delete image controller
     async function deleteImage(slug) {
-        if (!confirm('Are you sure you want to permanently delete this image from your hosted gallery? This cannot be undone.')) {
+        if (!confirm('Are you sure you want to permanently delete this image?')) {
             return;
         }
 
         try {
-            const response = await fetch(`/api/user/delete/${slug}`, {
-                method: 'POST'
-            });
+            const response = await fetch(`/api/user/delete/${slug}`, { method: 'POST' });
             const data = await response.json();
             
             if (response.ok && data.success) {
-                showToast('Image successfully deleted.');
-                
-                // Fade out card
+                showToast('Image deleted.');
                 const card = document.getElementById(`card-${slug}`);
                 if (card) {
-                    card.style.transition = 'all 0.4s ease';
+                    card.style.transition = 'all 0.35s ease';
                     card.style.opacity = '0';
-                    card.style.transform = 'scale(0.9)';
+                    card.style.transform = 'scale(0.92)';
                     setTimeout(() => {
                         card.remove();
-                        // Update counts
                         const countEl = document.getElementById('gallery-count');
                         let count = parseInt(countEl.textContent) || 0;
                         count = Math.max(0, count - 1);
                         countEl.textContent = count;
                         
-                        // Update Telemetry
                         const lifetimeEl = document.getElementById('stats-lifetime-uploads');
                         if (lifetimeEl) {
                             lifetimeEl.textContent = `${count} images`;
                         }
 
-                        // If empty, show empty state
                         if (count === 0) {
                             const grid = document.getElementById('gallery-grid');
                             grid.classList.add('hidden');
@@ -392,7 +388,7 @@
                                 emptyState.classList.remove('hidden');
                             }
                         }
-                    }, 400);
+                    }, 350);
                 }
             } else {
                 alert(`Error: ${data.detail || 'Could not delete image.'}`);
@@ -438,26 +434,19 @@
 
     async function handleUploads(fileList) {
         const files = Array.from(fileList).filter(file => file.type.startsWith('image/'));
+        if (files.length === 0) return;
         
-        if (files.length === 0) {
-            alert('Error: Please select one or more image files (PNG, JPG, JPEG, WEBP, GIF).');
-            return;
-        }
-        
-        // Slice to maximum 10 images at a time
         let filesToUpload = files;
         if (files.length > 10) {
-            alert('⚠️ Maximum 10 images can be uploaded at a time. Only the first 10 images will be processed.');
+            alert('⚠️ Maximum 10 images can be uploaded at a time.');
             filesToUpload = files.slice(0, 10);
         }
         
-        // Reset results from this upload session
         resultCard.classList.add('hidden');
         resultsContainer.innerHTML = '';
         
         const totalFiles = filesToUpload.length;
         let successCount = 0;
-        
         statusCard.classList.remove('hidden');
         
         for (let i = 0; i < totalFiles; i++) {
@@ -479,10 +468,9 @@
                 if (response.ok) {
                     successCount++;
                     addResultItem(file.name, data.view_url, data.raw_url);
-                    // Dynamically prepend new image card to gallery
                     addCardToGalleryGrid(data.slug, file.name, data.raw_url, data.view_url, file.size);
                 } else {
-                    addErrorItem(file.name, data.detail || 'Unknown error occurred.');
+                    addErrorItem(file.name, data.detail || 'Upload failed.');
                 }
             } catch (err) {
                 addErrorItem(file.name, `Network error: ${err}`);
@@ -490,7 +478,6 @@
         }
         
         statusCard.classList.add('hidden');
-        
         if (successCount > 0) {
             resultCard.classList.remove('hidden');
         }
@@ -499,33 +486,31 @@
     function addResultItem(fileName, viewUrl, rawUrl) {
         const uniqueId = 'res-' + Math.random().toString(36).substr(2, 9);
         const itemHtml = `
-            <div class="flex flex-col gap-3 border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                        <i class="fa-solid fa-image text-sm"></i>
+            <div class="flex flex-col gap-2 border-b border-white/5 pb-2.5 last:border-0 last:pb-0 text-[10px]">
+                <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <i class="fa-solid fa-image text-[10px]"></i>
                     </div>
                     <div class="min-w-0 flex-grow">
-                        <p class="text-xs font-bold text-white truncate">${fileName}</p>
-                        <p class="text-[9px] text-emerald-400 font-semibold uppercase tracking-wider">Uploaded successfully</p>
+                        <p class="font-semibold text-white truncate">${fileName}</p>
                     </div>
-                    <a href="${viewUrl}" target="_blank" class="btn-glass text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shrink-0 flex items-center gap-1">
-                        Visit<i class="fa-solid fa-chevron-right text-[8px]"></i>
+                    <a href="${viewUrl}" target="_blank" class="btn-glass text-white px-2 py-0.5 rounded font-bold shrink-0 flex items-center gap-0.5">
+                        Visit<i class="fa-solid fa-chevron-right text-[6px]"></i>
                     </a>
                 </div>
-                
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-0 sm:pl-11">
-                    <div class="flex flex-col gap-1">
-                        <span class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Preview Page</span>
-                        <div class="flex gap-2">
-                            <input type="text" id="${uniqueId}-view" value="${viewUrl}" readonly class="input-glass flex-grow px-2.5 py-1.5 rounded-lg text-[10px] font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
-                            <button onclick="copyToClipboard('${viewUrl}', 'Preview link copied!')" class="btn-glass text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold shrink-0 font-outfit">Copy</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-0 sm:pl-8">
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-[8px] font-bold text-[#64748B] uppercase tracking-wider">Preview Page</span>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="${uniqueId}-view" value="${viewUrl}" readonly class="input-glass flex-grow px-2 py-0.5 text-[9px] font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
+                            <button onclick="copyToClipboard('${viewUrl}', 'Preview link copied!')" class="btn-glass text-blue-400 px-2 py-0.5 font-bold shrink-0">Copy</button>
                         </div>
                     </div>
-                    <div class="flex flex-col gap-1">
-                        <span class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Direct Image Link</span>
-                        <div class="flex gap-2">
-                            <input type="text" id="${uniqueId}-raw" value="${rawUrl}" readonly class="input-glass flex-grow px-2.5 py-1.5 rounded-lg text-[10px] font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
-                            <button onclick="copyToClipboard('${rawUrl}', 'Direct image link copied!')" class="btn-glass text-blue-400 px-3 py-1.5 rounded-lg text-[10px] font-bold shrink-0 font-outfit">Copy</button>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-[8px] font-bold text-[#64748B] uppercase tracking-wider">Direct Link</span>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="${uniqueId}-raw" value="${rawUrl}" readonly class="input-glass flex-grow px-2 py-0.5 text-[9px] font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
+                            <button onclick="copyToClipboard('${rawUrl}', 'Direct image link copied!')" class="btn-glass text-blue-400 px-2 py-0.5 font-bold shrink-0">Copy</button>
                         </div>
                     </div>
                 </div>
@@ -536,14 +521,14 @@
 
     function addErrorItem(fileName, errorMessage) {
         const itemHtml = `
-            <div class="flex flex-col gap-2 border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
-                        <i class="fa-solid fa-circle-exclamation text-sm"></i>
+            <div class="flex flex-col gap-1 border-b border-white/5 pb-2.5 last:border-0 last:pb-0 text-[10px]">
+                <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i>
                     </div>
                     <div class="min-w-0 flex-grow">
-                        <p class="text-xs font-bold text-white truncate">${fileName}</p>
-                        <p class="text-[10px] text-rose-400 font-medium">${errorMessage}</p>
+                        <p class="font-semibold text-white truncate">${fileName}</p>
+                        <p class="text-[9px] text-rose-400 font-medium">${errorMessage}</p>
                     </div>
                 </div>
             </div>
@@ -563,85 +548,80 @@
     function addCardToGalleryGrid(slug, fileName, rawUrl, viewUrl, sizeBytes) {
         const grid = document.getElementById('gallery-grid');
         const emptyState = document.getElementById('gallery-empty-state');
-        
-        if (emptyState) {
-            emptyState.classList.add('hidden');
-        }
+        if (emptyState) emptyState.classList.add('hidden');
         grid.classList.remove('hidden');
         
         const now = new Date();
         const formattedDate = now.getFullYear() + '-' + 
             String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-            String(now.getDate()).padStart(2, '0') + ' ' + 
-            String(now.getHours()).padStart(2, '0') + ':' + 
-            String(now.getMinutes()).padStart(2, '0');
+            String(now.getDate()).padStart(2, '0');
 
         const cardHtml = `
             <div class="glass-card image-card flex flex-col group border border-white/5 overflow-hidden" id="card-${slug}" style="opacity: 0; transform: translateY(10px); transition: all 0.4s ease;">
                 <div class="relative aspect-[4/3] bg-[#07080c] flex items-center justify-center overflow-hidden">
                     <img src="/thumb/${slug}" alt="Hosted Image" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
                     <div class="action-overlay absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center gap-3">
-                        <a href="/i/${slug}" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all" title="View details">
-                            <i class="fa-solid fa-eye text-sm"></i>
+                        <a href="/i/${slug}" target="_blank" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all" title="View details">
+                            <i class="fa-solid fa-eye text-xs"></i>
                         </a>
-                        <button onclick="copyToClipboard('${rawUrl}', 'Direct URL copied!')" class="w-9 h-9 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 flex items-center justify-center transition-all" title="Copy Direct URL">
-                            <i class="fa-solid fa-link text-sm"></i>
+                        <button onclick="copyToClipboard('${rawUrl}', 'Direct URL copied!')" class="w-8 h-8 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 flex items-center justify-center transition-all" title="Copy Direct URL">
+                            <i class="fa-solid fa-link text-xs"></i>
                         </button>
-                        <button onclick="deleteImage('${slug}')" class="w-9 h-9 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-all" title="Delete Image">
-                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        <button onclick="deleteImage('${slug}')" class="w-8 h-8 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-all" title="Delete Image">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
                         </button>
                     </div>
                 </div>
-                <div class="p-4 flex flex-col gap-2.5">
-                    <div class="flex justify-between items-start">
-                        <span class="font-mono text-xs font-bold text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                <div class="p-3.5 flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-mono text-[10px] font-bold text-white bg-white/5 px-2 py-0.5 rounded border border-white/5">
                             ${slug}
                         </span>
-                        <div class="flex items-center gap-1.5 text-xs text-[#94A3B8] font-medium">
-                            <i class="fa-regular fa-eye text-[10px]"></i>
+                        <div class="flex items-center gap-1 text-[10px] text-[#94A3B8]">
+                            <i class="fa-regular fa-eye text-[9px]"></i>
                             <span>0 views</span>
                         </div>
                     </div>
-                    <div class="flex flex-col gap-1.5 border-t border-white/5 pt-2.5 mt-1">
-                        <div class="flex justify-between text-[10px] text-[#64748B]">
+                    <div class="flex flex-col gap-1 text-[9px] text-[#64748B] border-t border-white/5 pt-2 mt-0.5">
+                        <div class="flex justify-between">
                             <span>Size:</span>
                             <span class="text-[#94A3B8] font-semibold">${formatBytes(sizeBytes)}</span>
                         </div>
-                        <div class="flex justify-between text-[10px] text-[#64748B]">
+                        <div class="flex justify-between">
                             <span>Uploaded:</span>
                             <span class="text-[#94A3B8] font-semibold">${formattedDate}</span>
                         </div>
+                    </div>
+                    <div class="mobile-actions-panel justify-between gap-2">
+                        <a href="/i/${slug}" target="_blank" class="btn-glass flex-grow text-white py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-eye"></i> View
+                        </a>
+                        <button onclick="copyToClipboard('${rawUrl}', 'Direct URL copied!')" class="btn-glass flex-grow text-blue-400 py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-link"></i> Link
+                        </button>
+                        <button onclick="deleteImage('${slug}')" class="btn-glass flex-grow text-rose-400 hover:text-white py-1 rounded text-[10px] font-bold flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-trash-can"></i> Delete
+                        </button>
                     </div>
                 </div>
             </div>
         `;
         
         grid.insertAdjacentHTML('afterbegin', cardHtml);
-        
-        // Trigger reflow & fade in
-        const newCard = document.getElementById(`card-${slug}`);
         setTimeout(() => {
-            newCard.style.opacity = '1';
-            newCard.style.transform = 'translateY(0)';
+            const newCard = document.getElementById(`card-${slug}`);
+            if (newCard) {
+                newCard.style.opacity = '1';
+                newCard.style.transform = 'translateY(0)';
+            }
         }, 50);
         
-        // Update gallery badge
         const countEl = document.getElementById('gallery-count');
         const currentCount = parseInt(countEl.textContent) || 0;
         countEl.textContent = currentCount + 1;
         
-        // Update statistics
         const statsLifetime = document.getElementById('stats-lifetime-uploads');
-        if (statsLifetime) {
-            statsLifetime.textContent = `${currentCount + 1} images`;
-        }
-        
-        const statsDaily = document.getElementById('stats-daily-uploads');
-        if (statsDaily) {
-            const dailyParts = statsDaily.textContent.split(' ');
-            const currentDaily = parseInt(dailyParts[0]) || 0;
-            statsDaily.textContent = `${currentDaily + 1} uploads today`;
-        }
+        if (statsLifetime) statsLifetime.textContent = `${currentCount + 1} images`;
     }
 </script>
 {% endblock %}

@@ -579,11 +579,14 @@ async def api_auth_webapp(
     if res.scalar():
         raise HTTPException(status_code=403, detail="You are banned from using this service.")
         
-    # Store session values
-    request.session["user_id"] = user_id
-    request.session["username"] = username
-    
-    return {"success": True, "user_id": user_id, "username": username}
+    # Check if the active session matches this user
+    current_session_id = request.session.get("user_id")
+    if current_session_id != user_id:
+        request.session["user_id"] = user_id
+        request.session["username"] = username
+        return {"success": True, "reload": True}
+        
+    return {"success": True, "reload": False}
 
 @router.post("/api/auth/logout")
 async def api_auth_logout(request: Request):

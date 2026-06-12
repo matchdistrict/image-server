@@ -102,7 +102,7 @@
             webapp.ready();
             webapp.expand();
             
-            if (!IS_LOGGED_IN && webapp.initData) {
+            if (webapp.initData) {
                 fetch('/api/auth/webapp', {
                     method: 'POST',
                     headers: {
@@ -115,7 +115,7 @@
                     return res.json();
                 })
                 .then(data => {
-                    if (data.success) {
+                    if (data.success && data.reload) {
                         window.location.reload();
                     }
                 })
