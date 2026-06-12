@@ -291,7 +291,7 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
         image_bytes = file_stream.read()
         
         # Optimize image with Pillow
-        optimized_bytes = image_service.validate_and_optimize(file_bytes)
+        optimized_bytes = image_service.validate_and_optimize(image_bytes)
         
         # Save to Cache
         await cache_service.set(cache_key, optimized_bytes, expire=86400)

@@ -51,27 +51,5 @@
             </div>
         </div>
     </div>
-
-    <!-- Most Popular Images -->
-    <div class="glass-card p-6 flex flex-col gap-6">
-        <h2 class="font-outfit text-xl font-bold text-white border-b border-white/5 pb-4"><i class="fa-solid fa-fire text-amber-500 mr-2"></i>Most Popular Uploads</h2>
-        
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {% for img in stats.most_viewed %}
-            <div class="group relative overflow-hidden bg-[#030408]/60 border border-white/5 rounded-2xl p-2 flex flex-col gap-3 hover:border-indigo-500/30 transition-all">
-                <a href="/i/{{ img.slug }}" class="block aspect-square overflow-hidden rounded-xl bg-black">
-                    <img src="/thumb/{{ img.slug }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                </a>
-                <div class="flex justify-between items-center px-1">
-                    <span class="font-mono text-xs font-semibold text-indigo-400">{{ img.slug }}</span>
-                    <span class="text-xs text-[#64748B]"><i class="fa-solid fa-eye mr-1"></i>{{ img.views }}</span>
-                </div>
-            </div>
-            {% endfor %}
-            {% if not stats.most_viewed %}
-            <p class="col-span-full py-12 text-center text-[#475569] font-medium">No popular images tracked yet.</p>
-            {% endif %}
-        </div>
-    </div>
 </div>
 {% endblock %}
