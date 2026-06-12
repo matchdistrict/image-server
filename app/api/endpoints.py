@@ -1,12 +1,14 @@
 import datetime
 import secrets
 import urllib.parse
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from aiogram.exceptions import TelegramBadRequest
 
 from app.config import DOMAIN, STORAGE_CHANNEL_ID, SECRET_KEY, GUEST_LIMIT, USER_LIMIT
 from app.database import get_db
@@ -19,6 +21,7 @@ from app.services.stats_service import stats_service
 from app.bot.bot_instance import bot
 from aiogram.types import BufferedInputFile
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
@@ -43,6 +46,46 @@ async def check_ip_rate_limit(ip: str, limit: int) -> bool:
 def verify_admin_token(token: Optional[str]) -> bool:
     return token == SECRET_KEY
 
+# Unique slug helper
+async def generate_unique_slug(db: AsyncSession) -> str:
+    while True:
+        # Generate 6 character alphanumeric slug
+        slug = secrets.token_urlsafe(5).replace("-", "").replace("_", "")[:6].lower()
+        stmt = select(Image).where(Image.slug == slug)
+        res = await db.execute(stmt)
+        if not res.scalar():
+            return slug
+
+# Telegram message existence check helper
+async def check_message_exists(chat_id: int | str, message_id: int, slug: str) -> bool:
+    cache_key = f"msg_exists:{slug}"
+    cached = await cache_service.get(cache_key)
+    if cached == b"1":
+        return True
+    if cached == b"0":
+        return False
+        
+    try:
+        # Edit the message's reply markup to None (a safe, non-destructive check)
+        await bot.edit_message_reply_markup(chat_id=chat_id, message_id=message_id, reply_markup=None)
+        await cache_service.set(cache_key, b"1", expire=60)
+        return True
+    except TelegramBadRequest as e:
+        err_str = str(e).lower()
+        # Common message-not-found/deleted strings in Telegram Bot API errors
+        if "message to edit not found" in err_str or "message not found" in err_str or "chat not found" in err_str:
+            await cache_service.set(cache_key, b"0", expire=60)
+            return False
+        if "message is not modified" in err_str:
+            await cache_service.set(cache_key, b"1", expire=60)
+            return True
+        logger.warning(f"Unexpected TelegramBadRequest checking message {message_id}: {e}")
+        return True
+    except Exception as e:
+        logger.error(f"Error checking message existence for image {slug}: {e}")
+        # On generic connection/other errors, assume it exists to prevent accidental deletion
+        return True
+
 # ----------------- HTML VIEWS -----------------
 
 @router.get("/", response_class=HTMLResponse)
@@ -60,6 +103,14 @@ async def image_preview_view(slug: str, request: Request, db: AsyncSession = Dep
     res = await db.execute(stmt)
     image = res.scalar()
     if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+        
+    # Check if Telegram message is deleted
+    if not await check_message_exists(STORAGE_CHANNEL_ID, image.message_id, slug):
+        await db.delete(image)
+        await db.commit()
+        await cache_service.delete(f"image_cache:{slug}:full")
+        await cache_service.delete(f"image_cache:{slug}:thumb")
         raise HTTPException(status_code=404, detail="Image not found")
         
     # Record view async
@@ -92,6 +143,7 @@ async def delete_image_view(slug: str, delete_token: str, request: Request, db: 
     # Delete from Cache
     await cache_service.delete(f"image_cache:{slug}:full")
     await cache_service.delete(f"image_cache:{slug}:thumb")
+    await cache_service.delete(f"msg_exists:{slug}")
     
     return templates.TemplateResponse("error.html", {
         "request": request,
@@ -156,6 +208,7 @@ async def admin_delete_image(
     
     await cache_service.delete(f"image_cache:{slug}:full")
     await cache_service.delete(f"image_cache:{slug}:thumb")
+    await cache_service.delete(f"msg_exists:{slug}")
     
     return RedirectResponse(url=f"/admin?token={token}", status_code=303)
 
@@ -181,15 +234,23 @@ async def admin_ban_user(
 async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
     cache_key = f"image_cache:{slug}:full"
     
-    # 1. Check Cache
-    cached_data = await cache_service.get(cache_key)
-    
     stmt = select(Image).where(Image.slug == slug)
     res = await db.execute(stmt)
     image = res.scalar()
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
         
+    # Check if Telegram message is deleted
+    if not await check_message_exists(STORAGE_CHANNEL_ID, image.message_id, slug):
+        await db.delete(image)
+        await db.commit()
+        await cache_service.delete(cache_key)
+        await cache_service.delete(f"image_cache:{slug}:thumb")
+        raise HTTPException(status_code=404, detail="Image not found")
+        
+    # 1. Check Cache
+    cached_data = await cache_service.get(cache_key)
+    
     if cached_data:
         # Cache hit
         etag = f'W/"{slug}-full"'
@@ -217,7 +278,7 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
         image_bytes = file_stream.read()
         
         # Optimize image with Pillow
-        optimized_bytes = image_service.validate_and_optimize(image_bytes)
+        optimized_bytes = image_service.validate_and_optimize(file_bytes)
         
         # Save to Cache
         await cache_service.set(cache_key, optimized_bytes, expire=86400)
@@ -237,15 +298,23 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
 async def thumbnail_image_endpoint(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
     cache_key = f"image_cache:{slug}:thumb"
     
-    # Check Cache
-    cached_data = await cache_service.get(cache_key)
-    
     stmt = select(Image).where(Image.slug == slug)
     res = await db.execute(stmt)
     image = res.scalar()
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
         
+    # Check if Telegram message is deleted
+    if not await check_message_exists(STORAGE_CHANNEL_ID, image.message_id, slug):
+        await db.delete(image)
+        await db.commit()
+        await cache_service.delete(f"image_cache:{slug}:full")
+        await cache_service.delete(cache_key)
+        raise HTTPException(status_code=404, detail="Image not found")
+        
+    # Check Cache
+    cached_data = await cache_service.get(cache_key)
+    
     if cached_data:
         etag = f'W/"{slug}-thumb"'
         if request.headers.get("if-none-match") == etag:
@@ -327,6 +396,19 @@ async def api_upload_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
         
+    # Check if the image already exists in the database
+    stmt = select(Image).where(Image.file_unique_id == file_unique_id)
+    res = await db.execute(stmt)
+    existing_image = res.scalar()
+    if existing_image:
+        return UploadSuccessResponse(
+            message="Image uploaded successfully.",
+            slug=existing_image.slug,
+            view_url=f"{DOMAIN}/i/{existing_image.slug}",
+            raw_url=f"{DOMAIN}/raw/{existing_image.slug}",
+            delete_url=f"{DOMAIN}/delete/{existing_image.slug}/{existing_image.delete_token}"
+        )
+        
     # 5. Save DB entry
     slug = await generate_unique_slug(db)
     delete_token = secrets.token_hex(16)
@@ -346,6 +428,9 @@ async def api_upload_image(
     db.add(new_image)
     await db.commit()
     
+    # Cache message as existing
+    await cache_service.set(f"msg_exists:{slug}", b"1", expire=60)
+    
     return UploadSuccessResponse(
         message="Image uploaded successfully.",
         slug=slug,
@@ -361,6 +446,15 @@ async def api_get_image_metadata(slug: str, db: AsyncSession = Depends(get_db)):
     image = res.scalar()
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
+        
+    # Check if Telegram message is deleted
+    if not await check_message_exists(STORAGE_CHANNEL_ID, image.message_id, slug):
+        await db.delete(image)
+        await db.commit()
+        await cache_service.delete(f"image_cache:{slug}:full")
+        await cache_service.delete(f"image_cache:{slug}:thumb")
+        raise HTTPException(status_code=404, detail="Image not found")
+        
     return image
 
 @router.delete("/api/image/{slug}")
@@ -380,6 +474,7 @@ async def api_delete_image(
     
     await cache_service.delete(f"image_cache:{slug}:full")
     await cache_service.delete(f"image_cache:{slug}:thumb")
+    await cache_service.delete(f"msg_exists:{slug}")
     
     return {"message": f"Image '{slug}' has been successfully deleted."}
 
