@@ -4,448 +4,540 @@
 
 {% block head %}
 <style>
-    /* ---- Layout: images start right below nav ---- */
-    .dash-wrap {
-        width: 100%;
-        max-width: 100%;
-        padding: 0;
-    }
+/* ============================================================
+   DASHBOARD — Zero-Gap Full-Width Gallery Layout
+   ============================================================ */
 
-    /* ---- Upload bar pinned below nav ---- */
-    .dash-topbar {
-        position: sticky;
-        top: 57px; /* height of glass-nav */
-        z-index: 40;
-        background: rgba(7, 8, 12, 0.92);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 8px 14px;
-    }
+/* The <main> wrapper in base.html has no padding when logged in.
+   We use this class on our root container so it spans full width. */
+.dash-root {
+    width: 100%;
+    min-height: 100%;
+    position: relative;
+}
 
-    /* ---- Year / Month labels ---- */
-    .year-label {
-        font-family: 'Outfit', sans-serif;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #fff;
-        padding: 18px 14px 6px;
-    }
-    .month-label {
-        font-family: 'Outfit', sans-serif;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: .10em;
-        text-transform: uppercase;
-        color: #64748B;
-        padding: 10px 14px 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .month-label::after {
-        content: '';
-        flex: 1;
-        height: 1px;
-        background: rgba(255,255,255,0.05);
-    }
+/* ---- Section Labels ---- */
+.year-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.9);
+    padding: 16px 12px 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.year-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+}
+.month-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    color: #475569;
+    padding: 8px 12px 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.month-count {
+    color: #334155;
+    font-size: 8px;
+}
+.month-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.04);
+}
 
-    /* ---- Compact Grid ---- */
-    .img-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 2px;
-        padding: 0 0 2px;
-    }
-    @media (min-width: 480px) { .img-grid { grid-template-columns: repeat(4, 1fr); } }
-    @media (min-width: 640px) { .img-grid { grid-template-columns: repeat(5, 1fr); } }
-    @media (min-width: 768px) { .img-grid { grid-template-columns: repeat(6, 1fr); } }
-    @media (min-width: 1024px) { .img-grid { grid-template-columns: repeat(8, 1fr); } }
+/* ---- Image Grid ---- */
+.img-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    padding-bottom: 2px;
+}
+@media (min-width: 480px)  { .img-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 640px)  { .img-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 768px)  { .img-grid { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 1024px) { .img-grid { grid-template-columns: repeat(8, 1fr); } }
 
-    .img-cell {
-        aspect-ratio: 1;
-        overflow: hidden;
-        background: #030408;
-        cursor: pointer;
-        position: relative;
-    }
-    .img-cell img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: opacity 0.2s;
-        display: block;
-    }
-    .img-cell:active img { opacity: 0.7; }
+.img-cell {
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: #030408;
+    cursor: pointer;
+    position: relative;
+}
+.img-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.35s ease, opacity 0.15s;
+}
+.img-cell:active img { opacity: 0.65; transform: scale(0.97); }
 
-    /* ---- Lightbox ---- */
-    #lightbox {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 200;
-        background: rgba(5, 6, 11, 0.97);
-        flex-direction: column;
-        align-items: center;
-        animation: lbIn 0.22s cubic-bezier(0.16,1,0.3,1);
-        overflow-y: auto;
-    }
-    #lightbox.open { display: flex; }
-    @keyframes lbIn {
-        from { opacity: 0; transform: translateY(18px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
+/* ---- Floating Action Button (Upload) ---- */
+#fab-upload {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    z-index: 120;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #fff;
+    box-shadow: 0 8px 32px -4px rgba(99,102,241,0.55), 0 2px 8px rgba(0,0,0,0.4);
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+}
+#fab-upload:hover {
+    transform: scale(1.08);
+    box-shadow: 0 12px 40px -4px rgba(99,102,241,0.7), 0 2px 8px rgba(0,0,0,0.5);
+}
+#fab-upload:active { transform: scale(0.95); }
 
-    /* Close button */
-    #lb-close {
-        position: sticky;
-        top: 0;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 14px;
-        background: rgba(7, 8, 12, 0.95);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        z-index: 10;
-        flex-shrink: 0;
-    }
-    #lb-close button {
-        background: rgba(255,255,255,0.07);
-        border: none;
-        border-radius: 10px;
-        padding: 6px 12px;
-        color: #94A3B8;
-        font-size: 12px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        transition: background 0.2s, color 0.2s;
-    }
-    #lb-close button:hover { background: rgba(255,255,255,0.12); color: #fff; }
+/* ---- Drag-drop overlay ---- */
+#fullscreen-dropzone {
+    position: fixed;
+    inset: 0;
+    background: rgba(59,130,246,0.08);
+    backdrop-filter: blur(14px);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 3px dashed rgba(59,130,246,0.35);
+    margin: 10px;
+    border-radius: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+#fullscreen-dropzone.active { opacity: 1; pointer-events: auto; }
 
-    /* Full image */
-    #lb-img-wrap {
-        width: 100%;
-        max-width: 720px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px 14px 0;
-    }
-    #lb-img-wrap img {
-        width: 100%;
-        border-radius: 14px;
-        display: block;
-        box-shadow: 0 24px 64px -12px rgba(0,0,0,0.8);
-    }
+/* ============================================================
+   LIGHTBOX
+   ============================================================ */
+#lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: #05060b;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    animation: lbIn 0.22s cubic-bezier(0.16,1,0.3,1);
+}
+#lightbox.open { display: flex; }
+@keyframes lbIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 
-    /* Options panel below image */
-    #lb-options {
-        width: 100%;
-        max-width: 720px;
-        padding: 14px 14px 32px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        flex-shrink: 0;
-    }
+#lb-topbar {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(5,6,11,0.96);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 10;
+    flex-shrink: 0;
+}
+.lb-back-btn {
+    background: rgba(255,255,255,0.06);
+    border: none;
+    border-radius: 10px;
+    padding: 6px 14px 6px 10px;
+    color: #94A3B8;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, color 0.2s;
+    font-family: 'Inter', sans-serif;
+}
+.lb-back-btn:hover { background: rgba(255,255,255,0.11); color: #fff; }
+#lb-meta-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+#lb-slug {
+    font-family: 'Inter', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: .04em;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#lb-size {
+    font-size: 9px;
+    color: #475569;
+    font-weight: 600;
+    white-space: nowrap;
+}
 
-    /* Meta line */
-    #lb-meta {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    #lb-slug {
-        font-family: 'Inter', monospace;
-        font-size: 11px;
-        font-weight: 700;
-        color: #fff;
-        letter-spacing: .04em;
-    }
-    #lb-size {
-        font-size: 10px;
-        color: #64748B;
-        font-weight: 600;
-    }
+#lb-img-wrap {
+    width: 100%;
+    max-width: 720px;
+    padding: 18px 12px 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#lb-img-wrap img {
+    width: 100%;
+    border-radius: 16px;
+    display: block;
+    box-shadow: 0 28px 80px -16px rgba(0,0,0,0.9);
+}
 
-    /* Action buttons row */
-    .lb-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 8px;
-    }
-    .lb-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        padding: 11px 8px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.07);
-        background: rgba(255,255,255,0.04);
-        color: #94A3B8;
-        font-size: 11px;
-        font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-        transition: background 0.2s, color 0.2s, border-color 0.2s;
-        font-family: 'Inter', sans-serif;
-    }
-    .lb-btn:hover { background: rgba(255,255,255,0.09); color: #fff; }
-    .lb-btn.primary { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.25); color: #60A5FA; }
-    .lb-btn.primary:hover { background: rgba(59,130,246,0.22); color: #93C5FD; }
-    .lb-btn.danger { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #F87171; }
-    .lb-btn.danger:hover { background: rgba(239,68,68,0.16); color: #FCA5A5; }
+#lb-options {
+    width: 100%;
+    max-width: 720px;
+    padding: 16px 12px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+}
 
-    /* Embed code area */
-    #lb-embed-wrap {
-        display: none;
-        flex-direction: column;
-        gap: 6px;
-    }
-    #lb-embed-wrap.open { display: flex; }
-    #lb-embed-code {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-family: monospace;
-        font-size: 10px;
-        color: #94A3B8;
-        word-break: break-all;
-        white-space: pre-wrap;
-        line-height: 1.6;
-    }
-    #lb-embed-copy-btn {
-        align-self: flex-end;
-        font-size: 10px;
-        font-weight: 700;
-        color: #60A5FA;
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 4px 8px;
-        border-radius: 6px;
-        transition: background 0.2s;
-        font-family: 'Inter', sans-serif;
-    }
-    #lb-embed-copy-btn:hover { background: rgba(59,130,246,0.1); }
+.lb-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+.lb-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 12px 8px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.04);
+    color: #94A3B8;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.18s, color 0.18s;
+    font-family: 'Inter', sans-serif;
+}
+.lb-btn:hover { background: rgba(255,255,255,0.09); color: #fff; }
+.lb-btn.primary { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.25); color: #60A5FA; }
+.lb-btn.primary:hover { background: rgba(59,130,246,0.22); }
+.lb-btn.danger  { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); color: #F87171; }
+.lb-btn.danger:hover  { background: rgba(239,68,68,0.16); }
+.lb-wide { width: 100%; }
 
-    /* Drag-drop overlay */
-    #fullscreen-dropzone {
-        position: fixed;
-        inset: 0;
-        background: rgba(59,130,246,0.08);
-        backdrop-filter: blur(12px);
-        z-index: 150;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        border: 3px dashed rgba(59,130,246,0.35);
-        margin: 12px;
-        border-radius: 24px;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s;
-    }
-    #fullscreen-dropzone.active {
-        opacity: 1;
-        pointer-events: auto;
-    }
+#lb-embed-wrap { display: none; flex-direction: column; gap: 6px; }
+#lb-embed-wrap.open { display: flex; }
+#lb-embed-code {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 10px;
+    color: #94A3B8;
+    word-break: break-all;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+#lb-embed-copy-btn {
+    align-self: flex-end;
+    font-size: 10px;
+    font-weight: 700;
+    color: #60A5FA;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    font-family: 'Inter', sans-serif;
+}
+#lb-embed-copy-btn:hover { background: rgba(59,130,246,0.1); }
 
-    /* Toast */
-    #toast {
-        visibility: hidden;
-        min-width: 220px;
-        background: rgba(10,12,22,0.95);
-        color: #fff;
-        text-align: center;
-        border-radius: 12px;
-        padding: 12px 20px;
-        position: fixed;
-        z-index: 300;
-        left: 50%;
-        bottom: 24px;
-        transform: translateX(-50%);
-        border: 1px solid rgba(59,130,246,0.3);
-        box-shadow: 0 10px 30px -5px rgba(0,0,0,0.6);
-        backdrop-filter: blur(12px);
-        opacity: 0;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: .025em;
-        transition: opacity 0.25s, visibility 0s 0.25s;
-    }
-    #toast.show {
-        visibility: visible;
-        opacity: 1;
-        transition: opacity 0.25s;
-    }
+/* ============================================================
+   TELEMETRY — Full-Screen Panel
+   ============================================================ */
+#tele-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 210;
+    background: #05060b;
+    flex-direction: column;
+    overflow-y: auto;
+    animation: lbIn 0.24s cubic-bezier(0.16,1,0.3,1);
+}
+#tele-panel.open { display: flex; }
 
-    /* Telemetry bottom sheet */
-    #tele-sheet {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 180;
-        align-items: flex-end;
-        background: rgba(5,6,11,0.7);
-        backdrop-filter: blur(6px);
-        animation: sheetIn 0.25s cubic-bezier(0.16,1,0.3,1);
-    }
-    #tele-sheet.open { display: flex; }
-    @keyframes sheetIn {
-        from { opacity: 0; }
-        to   { opacity: 1; }
-    }
-    #tele-panel {
-        width: 100%;
-        max-width: 560px;
-        margin: 0 auto;
-        background: #0a0b13;
-        border-top: 1px solid rgba(255,255,255,0.07);
-        border-radius: 20px 20px 0 0;
-        padding: 20px 18px 36px;
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        animation: panelUp 0.28s cubic-bezier(0.16,1,0.3,1);
-    }
-    @keyframes panelUp {
-        from { transform: translateY(60px); }
-        to   { transform: translateY(0); }
-    }
-    .tele-handle {
-        width: 36px;
-        height: 4px;
-        border-radius: 99px;
-        background: rgba(255,255,255,0.1);
-        margin: 0 auto 8px;
-    }
-    .tele-section-title {
-        font-family: 'Outfit', sans-serif;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #64748B;
-        margin-bottom: 2px;
-    }
-    .tele-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-    }
-    .tele-item {
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.05);
-        border-radius: 12px;
-        padding: 10px 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-    .tele-item span:first-child { font-size: 9px; color: #64748B; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
-    .tele-item span:last-child  { font-size: 13px; color: #fff; font-weight: 700; font-family: 'Outfit', sans-serif; }
-    .tele-item.full-col { grid-column: span 2; }
-    .quota-bar-wrap { width: 100%; background: rgba(255,255,255,0.05); border-radius: 99px; height: 5px; overflow: hidden; margin-top: 4px; }
-    .quota-bar      { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #3B82F6, #6366F1); transition: width 0.5s; }
-    #countdown-row  { display: flex; justify-content: space-between; font-size: 9px; color: #60A5FA; font-weight: 600; margin-top: 6px; }
+#tele-topbar {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    background: rgba(5,6,11,0.97);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 10;
+    flex-shrink: 0;
+}
+#tele-topbar span {
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    color: #fff;
+}
 
-    /* Floating upload status */
-    #floating-upload-status {
-        position: fixed;
-        bottom: 24px;
-        right: 16px;
-        background: rgba(7,8,12,0.96);
-        border: 1px solid rgba(59,130,246,0.3);
-        border-radius: 14px;
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        z-index: 250;
-        box-shadow: 0 20px 40px -8px rgba(0,0,0,0.7);
-        max-width: 280px;
-        transform: translateY(64px);
-        opacity: 0;
-        pointer-events: none;
-        transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
-    }
-    #floating-upload-status.visible {
-        transform: translateY(0);
-        opacity: 1;
-        pointer-events: auto;
-    }
+.tele-body {
+    width: 100%;
+    max-width: 600px;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 0 48px;
+}
 
-    /* Scrollbar hidden for gallery section */
-    .scrollbar-none::-webkit-scrollbar { display: none; }
-    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+/* Hero avatar block */
+.tele-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 20px;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.tele-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(59,130,246,0.35);
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.1);
+}
+.tele-username {
+    font-family: 'Outfit', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -.01em;
+}
+.tele-role-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #60A5FA;
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: 99px;
+    padding: 3px 12px;
+    letter-spacing: .05em;
+}
+
+/* Section headers */
+.tele-section {
+    padding: 20px 14px 10px;
+}
+.tele-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #334155;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tele-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+}
+
+/* Card grid */
+.tele-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.tele-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tele-card.full { grid-column: span 2; }
+.tele-card-label {
+    font-size: 9px;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+.tele-card-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 15px;
+    color: #fff;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.tele-card-value.accent { color: #60A5FA; }
+.tele-card-value.green  { color: #34D399; }
+.tele-card-value.small  { font-size: 12px; }
+
+/* Quota bar inside telemetry */
+.tele-quota-bar-wrap {
+    width: 100%;
+    height: 5px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+.tele-quota-bar {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #3B82F6, #6366F1);
+    transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+    width: 0%;
+}
+#tele-countdown-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: #60A5FA;
+    font-weight: 600;
+    margin-top: 7px;
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+#toast {
+    visibility: hidden;
+    min-width: 200px;
+    background: rgba(10,12,22,0.96);
+    color: #fff;
+    text-align: center;
+    border-radius: 12px;
+    padding: 11px 20px;
+    position: fixed;
+    z-index: 400;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(59,130,246,0.3);
+    box-shadow: 0 10px 30px -5px rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    opacity: 0;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .025em;
+    transition: opacity 0.25s, visibility 0s 0.25s;
+}
+#toast.show { visibility: visible; opacity: 1; transition: opacity 0.25s; }
+
+/* ============================================================
+   FLOATING UPLOAD STATUS
+   ============================================================ */
+#floating-upload-status {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    background: rgba(7,8,12,0.97);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 16px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 300;
+    box-shadow: 0 16px 40px -8px rgba(0,0,0,0.7);
+    max-width: 260px;
+    transform: translateY(80px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+#floating-upload-status.visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Drag-Drop Overlay -->
+<!-- =================== DRAG-DROP OVERLAY =================== -->
 <div id="fullscreen-dropzone">
-    <div class="w-14 h-14 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 text-2xl mb-3">
+    <div style="width:56px;height:56px;border-radius:50%;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);display:flex;align-items:center;justify-content:center;font-size:22px;color:#60A5FA;margin-bottom:12px;">
         <i class="fa-solid fa-cloud-arrow-up"></i>
     </div>
-    <p class="font-outfit text-sm font-bold text-white">Drop to Upload</p>
-    <p class="text-[10px] text-[#94A3B8] mt-1">PNG, JPG, WEBP, GIF supported</p>
+    <p style="font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;color:#fff;">Drop to Upload</p>
+    <p style="font-size:10px;color:#64748B;margin-top:4px;">PNG, JPG, WEBP, GIF</p>
 </div>
 
 <!-- Hidden file input -->
 <input type="file" id="file-input" class="hidden" accept="image/*" multiple>
 
-<!-- Top action bar (sticky below nav) -->
-<div class="dash-topbar">
-    <div class="flex items-center gap-2">
-        <span class="text-[10px] font-bold text-[#64748B] uppercase tracking-widest">Gallery</span>
-        <span class="text-[10px] font-bold text-white bg-white/5 px-2 py-0.5 rounded-full border border-white/5">{{ images|length }}</span>
-    </div>
-    <div class="flex items-center gap-2">
-        <button onclick="openTeleSheet()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-[#94A3B8] text-[10px] font-bold hover:text-white hover:bg-white/10 transition-all">
-            <i class="fa-solid fa-gauge-high text-[10px]"></i>
-            <span>Telemetry</span>
-        </button>
-        <button onclick="triggerFileUpload()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 border border-blue-500/20 text-blue-400 text-[10px] font-bold hover:bg-blue-500/25 transition-all">
-            <i class="fa-solid fa-plus text-[9px]"></i>
-            <span>Upload</span>
-        </button>
-    </div>
-</div>
-
-<!-- Gallery: Full-width, Year → Month → Grid -->
-<div class="dash-wrap" id="gallery-wrap">
+<!-- =================== GALLERY =================== -->
+<div class="dash-root" id="gallery-root">
     {% if images_grouped %}
         {% for year, months in images_grouped %}
         <div id="section-year-{{ year }}">
-            <!-- Year heading -->
             <div class="year-label">{{ year }}</div>
 
             {% for month_name, month_images in months %}
             <div id="section-{{ year }}-{{ month_name }}">
-                <!-- Month heading -->
                 <div class="month-label">
                     {{ month_name }}
-                    <span class="text-[8px] text-[#475569]">({{ month_images|length }})</span>
+                    <span class="month-count">({{ month_images|length }})</span>
                 </div>
-
-                <!-- Image grid -->
                 <div class="img-grid">
                     {% for img in month_images %}
                     <div class="img-cell" id="cell-{{ img.slug }}"
@@ -463,56 +555,56 @@
         </div>
         {% endfor %}
     {% else %}
-        <div class="flex flex-col items-center justify-center gap-3 py-24 px-6 text-center">
-            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400 text-xl border border-blue-500/10">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 24px;text-align:center;">
+            <div style="width:52px;height:52px;border-radius:16px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;font-size:20px;color:#60A5FA;">
                 <i class="fa-regular fa-image"></i>
             </div>
-            <p class="font-outfit text-sm font-bold text-white">No images yet</p>
-            <p class="text-[11px] text-[#64748B]">Upload your first image to get started.</p>
-            <button onclick="triggerFileUpload()" class="mt-2 px-5 py-2 rounded-xl bg-blue-500/15 border border-blue-500/20 text-blue-400 text-xs font-bold hover:bg-blue-500/25 transition-all">Upload</button>
+            <p style="font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;color:#fff;">No images yet</p>
+            <p style="font-size:11px;color:#64748B;">Upload your first image to get started.</p>
+            <button onclick="triggerFileUpload()" style="margin-top:8px;padding:10px 24px;border-radius:14px;background:rgba(59,130,246,0.14);border:1px solid rgba(59,130,246,0.22);color:#60A5FA;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Upload Image</button>
         </div>
     {% endif %}
+    <!-- Bottom padding so FAB doesn't overlap last image -->
+    <div style="height:80px;"></div>
 </div>
 
-<!-- ===================== LIGHTBOX ===================== -->
+<!-- =================== FLOATING ACTION BUTTON =================== -->
+<button id="fab-upload" onclick="triggerFileUpload()" title="Upload Image" aria-label="Upload Image">
+    <i class="fa-solid fa-plus"></i>
+</button>
+
+<!-- =================== LIGHTBOX =================== -->
 <div id="lightbox">
     <!-- Top bar -->
-    <div id="lb-close">
-        <button onclick="closeLightbox()">
-            <i class="fa-solid fa-chevron-left text-[10px]"></i> Back
+    <div id="lb-topbar">
+        <button class="lb-back-btn" onclick="closeLightbox()">
+            <i class="fa-solid fa-chevron-left" style="font-size:9px;"></i> Back
         </button>
-        <div id="lb-meta">
-            <span id="lb-slug" class="truncate max-w-[160px]"></span>
+        <div id="lb-meta-bar">
+            <span id="lb-slug"></span>
             <span id="lb-size"></span>
         </div>
     </div>
-
     <!-- Full image -->
     <div id="lb-img-wrap">
         <img id="lb-full-img" src="" alt="Full image">
     </div>
-
     <!-- Options below image -->
     <div id="lb-options">
-        <!-- Action buttons -->
         <div class="lb-actions">
             <a id="lb-view-btn" href="#" target="_blank" class="lb-btn">
-                <i class="fa-solid fa-eye text-[11px]"></i> View
+                <i class="fa-solid fa-eye" style="font-size:11px;"></i> View
             </a>
-            <button id="lb-copy-btn" class="lb-btn primary" onclick="lbCopyDirect()">
-                <i class="fa-solid fa-link text-[11px]"></i> Copy URL
+            <button class="lb-btn primary" onclick="lbCopyDirect()">
+                <i class="fa-solid fa-link" style="font-size:11px;"></i> Copy URL
             </button>
-            <button id="lb-delete-btn" class="lb-btn danger" onclick="lbDelete()">
-                <i class="fa-solid fa-trash-can text-[11px]"></i> Delete
+            <button class="lb-btn danger" onclick="lbDelete()">
+                <i class="fa-solid fa-trash-can" style="font-size:11px;"></i> Delete
             </button>
         </div>
-
-        <!-- Embed section toggle -->
-        <button class="lb-btn" onclick="toggleLbEmbed()" style="width:100%">
-            <i class="fa-solid fa-code text-[11px]"></i> Get Embed Code
+        <button class="lb-btn lb-wide" onclick="toggleLbEmbed()">
+            <i class="fa-solid fa-code" style="font-size:11px;"></i> Get Embed Code
         </button>
-
-        <!-- Embed code area -->
         <div id="lb-embed-wrap">
             <div id="lb-embed-code"></div>
             <button id="lb-embed-copy-btn" onclick="lbCopyEmbed()">Copy Embed</button>
@@ -520,98 +612,152 @@
     </div>
 </div>
 
-<!-- ===================== TELEMETRY BOTTOM SHEET ===================== -->
-<div id="tele-sheet" onclick="closeTeleSheet(event)">
-    <div id="tele-panel">
-        <div class="tele-handle"></div>
-        <p class="tele-section-title">Daily Quota</p>
-        <div class="tele-grid">
-            <div class="tele-item">
-                <span>Uploaded</span>
-                <span>{{ user_stats.daily_uploads }}</span>
-            </div>
-            <div class="tele-item">
-                <span>Limit</span>
-                <span>{{ user_stats.limit }}</span>
-            </div>
-            <div class="tele-item">
-                <span>Remaining</span>
-                <span>{{ user_stats.remaining }}</span>
-            </div>
-            <div class="tele-item">
-                <span>Role</span>
-                <span style="font-size:11px">{{ user_stats.role }}</span>
-            </div>
-            {% if user_stats.limit != 'Unlimited' %}
-            <div class="tele-item full-col">
-                <span>Usage</span>
-                <div class="quota-bar-wrap mt-1">
-                    <div class="quota-bar" id="quota-bar" data-pct="{{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}" style="width:0%"></div>
-                </div>
-                {% if user_stats.countdown_seconds > 0 %}
-                <div id="countdown-row">
-                    <span>Resets in</span>
-                    <span id="quota-countdown" data-countdown="{{ user_stats.countdown_seconds }}" class="font-mono">--:--:--</span>
-                </div>
-                {% endif %}
-            </div>
-            {% else %}
-            <div class="tele-item full-col">
-                <span>Quota</span>
-                <span style="color:#34D399">Unlimited — Admin Bypass</span>
-            </div>
-            {% endif %}
+<!-- =================== TELEMETRY PANEL =================== -->
+<div id="tele-panel">
+    <div id="tele-topbar">
+        <button class="lb-back-btn" onclick="closeTelePanel()">
+            <i class="fa-solid fa-chevron-left" style="font-size:9px;"></i> Back
+        </button>
+        <span>Telemetry</span>
+    </div>
+
+    <div class="tele-body">
+        <!-- Hero -->
+        <div class="tele-hero">
+            <img class="tele-avatar" src="{{ avatar_url }}" alt="{{ username }}'s avatar">
+            <div class="tele-username">{{ username }}</div>
+            <div class="tele-role-badge">{{ user_stats.role }}</div>
         </div>
 
-        <p class="tele-section-title" style="margin-top:6px">Profile</p>
-        <div class="tele-grid">
-            <div class="tele-item">
-                <span>Username</span>
-                <span class="truncate">{{ username }}</span>
+        <!-- Telegram Identity -->
+        <div class="tele-section">
+            <div class="tele-section-title">Telegram Identity</div>
+            <div class="tele-grid">
+                <div class="tele-card">
+                    <span class="tele-card-label">Username</span>
+                    <span class="tele-card-value small">{{ username }}</span>
+                </div>
+                <div class="tele-card">
+                    <span class="tele-card-label">Telegram ID</span>
+                    <span class="tele-card-value accent small">{{ user_id }}</span>
+                </div>
+                <div class="tele-card full">
+                    <span class="tele-card-label">Auth Method</span>
+                    <span class="tele-card-value small">Telegram WebApp Secure Token</span>
+                </div>
             </div>
-            <div class="tele-item">
-                <span>Total Images</span>
-                <span>{{ images|length }}</span>
+        </div>
+
+        <!-- Gallery Stats -->
+        <div class="tele-section">
+            <div class="tele-section-title">Gallery Statistics</div>
+            <div class="tele-grid">
+                <div class="tele-card">
+                    <span class="tele-card-label">Total Images</span>
+                    <span class="tele-card-value">{{ images|length }}</span>
+                </div>
+                <div class="tele-card">
+                    <span class="tele-card-label">Lifetime Uploads</span>
+                    <span class="tele-card-value">{{ user_stats.lifetime_uploads }}</span>
+                </div>
+                <div class="tele-card full">
+                    <span class="tele-card-label">Total Storage Used</span>
+                    <span class="tele-card-value accent">
+                        {% if user_stats.total_storage_bytes >= 1073741824 %}
+                            {{ (user_stats.total_storage_bytes / 1073741824)|round(2) }} GB
+                        {% elif user_stats.total_storage_bytes >= 1048576 %}
+                            {{ (user_stats.total_storage_bytes / 1048576)|round(2) }} MB
+                        {% elif user_stats.total_storage_bytes >= 1024 %}
+                            {{ (user_stats.total_storage_bytes / 1024)|round(1) }} KB
+                        {% else %}
+                            {{ user_stats.total_storage_bytes }} Bytes
+                        {% endif %}
+                    </span>
+                </div>
             </div>
-            <div class="tele-item full-col">
-                <span>Total Storage Used</span>
-                <span>
-                    {% if user_stats.total_storage_bytes >= 1048576 %}
-                        {{ (user_stats.total_storage_bytes / 1048576)|round(2) }} MB
-                    {% elif user_stats.total_storage_bytes >= 1024 %}
-                        {{ (user_stats.total_storage_bytes / 1024)|round(1) }} KB
-                    {% else %}
-                        {{ user_stats.total_storage_bytes }} Bytes
+        </div>
+
+        <!-- Daily Quota -->
+        <div class="tele-section">
+            <div class="tele-section-title">Daily Quota</div>
+            <div class="tele-grid">
+                <div class="tele-card">
+                    <span class="tele-card-label">Today Uploaded</span>
+                    <span class="tele-card-value">{{ user_stats.daily_uploads }}</span>
+                </div>
+                <div class="tele-card">
+                    <span class="tele-card-label">Remaining</span>
+                    <span class="tele-card-value green">{{ user_stats.remaining }}</span>
+                </div>
+                <div class="tele-card full">
+                    <span class="tele-card-label">Daily Limit</span>
+                    <span class="tele-card-value">{{ user_stats.limit }}</span>
+                    {% if user_stats.limit != 'Unlimited' %}
+                    <div class="tele-quota-bar-wrap">
+                        <div class="tele-quota-bar" id="tele-quota-bar" data-pct="{{ (user_stats.daily_uploads / user_stats.limit * 100)|round(0) }}"></div>
+                    </div>
+                    {% if user_stats.countdown_seconds > 0 %}
+                    <div id="tele-countdown-row">
+                        <span>Quota resets in</span>
+                        <span id="quota-countdown" data-countdown="{{ user_stats.countdown_seconds }}" class="font-mono">--:--:--</span>
+                    </div>
                     {% endif %}
-                </span>
+                    {% else %}
+                    <div style="margin-top:6px;font-size:9px;color:#34D399;font-weight:700;">✓ Unlimited — Administrator Bypass Active</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
+
+        <!-- Storage breakdown by year -->
+        {% if images_grouped %}
+        <div class="tele-section">
+            <div class="tele-section-title">Activity by Year</div>
+            <div class="tele-grid">
+                {% for year, months in images_grouped %}
+                <div class="tele-card">
+                    <span class="tele-card-label">{{ year }}</span>
+                    <span class="tele-card-value">
+                        {% set ns = namespace(total=0) %}
+                        {% for month_name, month_images in months %}{% set ns.total = ns.total + month_images|length %}{% endfor %}
+                        {{ ns.total }} images
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Floating upload status -->
+<!-- =================== FLOATING UPLOAD STATUS =================== -->
 <div id="floating-upload-status">
-    <div class="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin shrink-0"></div>
-    <div class="min-w-0">
-        <p id="upload-status-title" class="text-xs font-bold text-white truncate">Uploading...</p>
-        <p id="upload-status-text" class="text-[9px] text-[#94A3B8] truncate">Initializing...</p>
+    <div style="width:18px;height:18px;border-radius:50%;border:2px solid #3B82F6;border-top-color:transparent;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>
+    <div style="min-width:0;">
+        <p id="upload-status-title" style="font-size:11px;font-weight:700;color:#fff;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Uploading...</p>
+        <p id="upload-status-text" style="font-size:9px;color:#94A3B8;margin:2px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Initializing...</p>
     </div>
 </div>
 
-<!-- Toast -->
+<!-- =================== TOAST =================== -->
 <div id="toast">Copied!</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // ===================== QUOTA BAR =====================
-    const qBar = document.getElementById('quota-bar');
+    // ============================================================
+    // QUOTA BAR + COUNTDOWN
+    // ============================================================
+    const qBar = document.getElementById('tele-quota-bar');
     if (qBar) {
         const pct = parseFloat(qBar.dataset.pct || '0');
         requestAnimationFrame(() => { qBar.style.width = Math.min(pct, 100) + '%'; });
     }
 
-    // ===================== COUNTDOWN =====================
     const cdEl = document.getElementById('quota-countdown');
     if (cdEl) {
         let t = parseInt(cdEl.dataset.countdown) || 0;
@@ -619,11 +765,14 @@
         (function tick() {
             if (t <= 0) { cdEl.textContent = '00:00:00'; setTimeout(() => location.reload(), 1500); return; }
             cdEl.textContent = fmt(Math.floor(t/3600)) + ':' + fmt(Math.floor((t%3600)/60)) + ':' + fmt(t%60);
-            t--; setTimeout(tick, 1000);
+            t--;
+            setTimeout(tick, 1000);
         })();
     }
 
-    // ===================== TOAST =====================
+    // ============================================================
+    // TOAST
+    // ============================================================
     function showToast(msg) {
         const el = document.getElementById('toast');
         el.textContent = msg;
@@ -631,7 +780,9 @@
         setTimeout(() => el.classList.remove('show'), 2800);
     }
 
-    // ===================== CLIPBOARD =====================
+    // ============================================================
+    // CLIPBOARD
+    // ============================================================
     function copyText(text, msg) {
         navigator.clipboard.writeText(text)
             .then(() => showToast(msg || 'Copied!'))
@@ -646,11 +797,12 @@
             });
     }
 
-    // ===================== LIGHTBOX =====================
+    // ============================================================
+    // LIGHTBOX
+    // ============================================================
     let lbCurrentSlug = '';
     let lbCurrentRaw  = '';
 
-    // Reads data-* attributes from the clicked cell — avoids Jinja in onclick
     function openLightboxFromEl(el) {
         openLightbox(el.dataset.slug, el.dataset.raw, el.dataset.thumb, parseInt(el.dataset.size, 10));
     }
@@ -667,7 +819,6 @@
                                   fileSize + ' B';
         document.getElementById('lb-view-btn').href = '/i/' + slug;
 
-        // Reset embed section
         document.getElementById('lb-embed-wrap').classList.remove('open');
         document.getElementById('lb-embed-code').textContent = '';
 
@@ -684,7 +835,7 @@
     function lbCopyDirect() { copyText(lbCurrentRaw, 'Direct URL copied!'); }
 
     async function lbDelete() {
-        if (!confirm('Remove this image from your dashboard?\n(The file stays on Telegram servers.)')) return;
+        if (!confirm('Remove this image from your dashboard?\n(File stays on Telegram servers.)')) return;
         try {
             const r = await fetch('/api/user/delete/' + lbCurrentSlug, { method: 'POST' });
             const d = await r.json();
@@ -693,10 +844,10 @@
                 closeLightbox();
                 const cell = document.getElementById('cell-' + lbCurrentSlug);
                 if (cell) {
-                    cell.style.transition = 'all 0.3s';
+                    cell.style.transition = 'all 0.28s ease';
                     cell.style.opacity = '0';
-                    cell.style.transform = 'scale(0.8)';
-                    setTimeout(() => { cell.remove(); }, 320);
+                    cell.style.transform = 'scale(0.75)';
+                    setTimeout(() => { cell.remove(); }, 300);
                 }
             } else {
                 alert('Error: ' + (d.detail || 'Could not remove image.'));
@@ -706,41 +857,41 @@
 
     function toggleLbEmbed() {
         const wrap = document.getElementById('lb-embed-wrap');
-        if (wrap.classList.contains('open')) {
-            wrap.classList.remove('open');
-            return;
-        }
+        if (wrap.classList.contains('open')) { wrap.classList.remove('open'); return; }
         const embed = `<img src="${lbCurrentRaw}" alt="Hosted image" style="max-width:100%">`;
         document.getElementById('lb-embed-code').textContent = embed;
         wrap.classList.add('open');
     }
 
     function lbCopyEmbed() {
-        const code = document.getElementById('lb-embed-code').textContent;
-        copyText(code, 'Embed code copied!');
+        copyText(document.getElementById('lb-embed-code').textContent, 'Embed code copied!');
     }
 
-    // Close lightbox on back swipe / browser back
     window.addEventListener('popstate', () => {
         if (document.getElementById('lightbox').classList.contains('open')) closeLightbox();
+        if (document.getElementById('tele-panel').classList.contains('open')) closeTelePanel();
     });
 
-    // ===================== TELEMETRY SHEET =====================
-    function openTeleSheet() {
-        document.getElementById('tele-sheet').classList.add('open');
+    // ============================================================
+    // TELEMETRY PANEL
+    // ============================================================
+    function openTelePanel() {
+        document.getElementById('tele-panel').classList.add('open');
         document.body.style.overflow = 'hidden';
     }
-    function closeTeleSheet(e) {
-        if (e && e.target !== document.getElementById('tele-sheet')) return;
-        document.getElementById('tele-sheet').classList.remove('open');
+
+    function closeTelePanel() {
+        document.getElementById('tele-panel').classList.remove('open');
         document.body.style.overflow = '';
     }
 
-    // ===================== UPLOAD =====================
-    const fileInput  = document.getElementById('file-input');
-    const statusBox  = document.getElementById('floating-upload-status');
-    const sTitleEl   = document.getElementById('upload-status-title');
-    const sTextEl    = document.getElementById('upload-status-text');
+    // ============================================================
+    // UPLOAD
+    // ============================================================
+    const fileInput = document.getElementById('file-input');
+    const statusBox = document.getElementById('floating-upload-status');
+    const sTitleEl  = document.getElementById('upload-status-title');
+    const sTextEl   = document.getElementById('upload-status-text');
 
     function triggerFileUpload() { fileInput.click(); }
 
@@ -748,7 +899,6 @@
         if (fileInput.files.length > 0) handleUploads(fileInput.files);
     });
 
-    // Drag-and-drop
     const dropOverlay = document.getElementById('fullscreen-dropzone');
     window.addEventListener('dragenter', e => { e.preventDefault(); dropOverlay.classList.add('active'); });
     dropOverlay.addEventListener('dragover', e => e.preventDefault());
@@ -780,7 +930,7 @@
         }
 
         statusBox.classList.remove('visible');
-        showToast('Images uploaded successfully!');
+        showToast('Images uploaded!');
         setTimeout(() => location.reload(), 900);
     }
 </script>

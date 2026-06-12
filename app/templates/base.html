@@ -66,10 +66,12 @@
             </a>
             {% endif %}
             {% if username %}
-            <a href="/" class="text-xs sm:text-sm font-semibold text-blue-400 bg-blue-500/10 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-blue-500/10 flex items-center gap-1 shrink-0 max-w-[100px] sm:max-w-none hover:bg-blue-500/20 transition-all" title="My Dashboard">
+            <button onclick="typeof openTelePanel==='function' ? openTelePanel() : window.location.href='/'"
+                class="text-xs sm:text-sm font-semibold text-blue-400 bg-blue-500/10 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-blue-500/10 flex items-center gap-1 shrink-0 max-w-[100px] sm:max-w-none hover:bg-blue-500/20 transition-all"
+                title="My Telemetry">
                 <i class="fa-solid fa-circle-user text-[#60A5FA] text-xs"></i>
                 <span class="truncate">{{ username }}</span>
-            </a>
+            </button>
             <button onclick="handleLogout()"
                 class="text-xs sm:text-sm font-semibold text-[#94A3B8] hover:text-rose-400 transition-all flex items-center justify-center gap-1 p-2 rounded-xl shrink-0"
                 title="Logout">

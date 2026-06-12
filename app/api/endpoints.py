@@ -259,6 +259,7 @@ async def homepage_view(request: Request, db: AsyncSession = Depends(get_db)):
                 "user_stats": user_stats,
                 "username": request.session.get("username", "User"),
                 "avatar_url": f"/avatar/{user_id}",
+                "user_id": user_id,
                 "token": SECRET_KEY
             }
         )
