@@ -6,13 +6,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram.exceptions import TelegramBadRequest
 
-from app.config import DOMAIN, STORAGE_CHANNEL_ID, SECRET_KEY, GUEST_LIMIT, USER_LIMIT
+from app.config import DOMAIN, STORAGE_CHANNEL_ID, SECRET_KEY, GUEST_LIMIT, USER_LIMIT, BOT_USERNAME
 from app.database import get_db
-from app.models import Image, Analytics, BannedUser
+from app.models import Image, Analytics, BannedUser, AdminApiKey
 from app.schemas import UploadSuccessResponse, StatsItem, ImageResponse
 from app.services.cache_service import cache_service
 from app.services.image_service import image_service
@@ -24,6 +24,10 @@ from aiogram.types import BufferedInputFile
 logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+# Register global context variables for template generation
+templates.env.globals["bot_username"] = BOT_USERNAME
+templates.env.globals["domain"] = DOMAIN
 
 # Rate limiting helper
 async def check_ip_rate_limit(ip: str, limit: int) -> bool:
@@ -190,6 +194,12 @@ async def admin_dashboard_view(
     res = await db.execute(stmt)
     images = res.scalars().all()
     
+    # Get active Admin API key
+    key_stmt = select(AdminApiKey)
+    key_res = await db.execute(key_stmt)
+    key_record = key_res.scalar()
+    api_key = key_record.key if key_record else None
+    
     return templates.TemplateResponse(
         request=request,
         name="admin.html",
@@ -197,7 +207,8 @@ async def admin_dashboard_view(
             "stats": stats,
             "images": images,
             "token": token,
-            "search": search
+            "search": search,
+            "api_key": api_key
         }
     )
 
@@ -237,6 +248,37 @@ async def admin_ban_user(
         
     ban_entry = BannedUser(telegram_id=telegram_id, reason=reason)
     db.add(ban_entry)
+    await db.commit()
+    
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
+
+@router.post("/admin/api-key/generate")
+async def admin_generate_api_key(
+    token: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    # Delete existing API keys to enforce only one key at a time
+    await db.execute(delete(AdminApiKey))
+    
+    new_key = f"TGCloud_{secrets.token_urlsafe(32)}"
+    api_key_entry = AdminApiKey(key=new_key)
+    db.add(api_key_entry)
+    await db.commit()
+    
+    return RedirectResponse(url=f"/admin?token={token}", status_code=303)
+
+@router.post("/admin/api-key/revoke")
+async def admin_revoke_api_key(
+    token: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    if not verify_admin_token(token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    await db.execute(delete(AdminApiKey))
     await db.commit()
     
     return RedirectResponse(url=f"/admin?token={token}", status_code=303)
@@ -377,27 +419,43 @@ async def api_upload_image(
 ):
     ip = request.client.host if request.client else "127.0.0.1"
     
-    # 1. Rate Limiting Check for Guest IP
-    if not await check_ip_rate_limit(ip, GUEST_LIMIT):
-        raise HTTPException(status_code=429, detail="Daily rate limit exceeded for guest upload.")
+    # 1. API Key Check
+    api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+    is_admin_api = False
+    if api_key:
+        stmt = select(AdminApiKey).where(AdminApiKey.key == api_key)
+        res = await db.execute(stmt)
+        if res.scalar():
+            is_admin_api = True
+            
+    # 2. Rate Limiting Check for Guest IP (bypassed for Admin API)
+    if not is_admin_api:
+        if not await check_ip_rate_limit(ip, GUEST_LIMIT):
+            raise HTTPException(status_code=429, detail="Daily rate limit exceeded for guest upload.")
         
-    # 2. File Verification
+    # 3. File Verification
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are permitted.")
         
     try:
         file_bytes = await file.read()
         
+        # Enforce size limit: 10MB for guest, 20MB for Admin API Key uploads
+        max_allowed_size = 20 * 1024 * 1024 if is_admin_api else 10 * 1024 * 1024
+        if len(file_bytes) > max_allowed_size:
+            limit_mb = max_allowed_size // (1024 * 1024)
+            raise ValueError(f"File size exceeds the {limit_mb}MB limit.")
+            
         # Validate structure with Pillow
         optimized_bytes = image_service.validate_and_optimize(file_bytes)
         file_size = len(optimized_bytes)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid image structure or corrupt content.")
+    except ValueError as val_err:
+        raise HTTPException(status_code=400, detail=str(val_err) or "Invalid image structure or corrupt content.")
         
-    # 3. Content Moderation
+    # 4. Content Moderation
     is_nsfw = moderation_service.check_nsfw(optimized_bytes)
     
-    # 4. Upload to storage channel
+    # 5. Upload to storage channel
     try:
         input_file = BufferedInputFile(optimized_bytes, filename=file.filename or "image.jpg")
         sent_msg = await bot.send_document(
@@ -422,7 +480,7 @@ async def api_upload_image(
             delete_url=f"{DOMAIN}/delete/{existing_image.slug}/{existing_image.delete_token}"
         )
         
-    # 5. Save DB entry
+    # 6. Save DB entry
     slug = await generate_unique_slug(db)
     delete_token = secrets.token_hex(16)
     
@@ -433,7 +491,7 @@ async def api_upload_image(
         message_id=sent_msg.message_id,
         mime_type=file.content_type,
         file_size=file_size,
-        uploaded_by=None,  # Guest upload
+        uploaded_by=None,
         delete_token=delete_token,
         is_nsfw=is_nsfw,
         nsfw_checked=True

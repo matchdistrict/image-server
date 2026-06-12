@@ -58,6 +58,56 @@
         </div>
     </div>
 
+    <!-- Admin API Access Control -->
+    <div class="border-gradient-wrapper">
+        <div class="border-gradient-card p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div class="flex items-center gap-4 w-full lg:w-auto">
+                <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-xl shrink-0">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <div class="min-w-0 flex-grow">
+                    <h2 class="font-outfit text-base sm:text-lg font-bold text-white">Admin API Access Control</h2>
+                    <p class="text-xs text-[#64748B] mt-0.5">Generate or revoke the single active API key to perform uploads bypassing all limits.</p>
+                </div>
+            </div>
+            
+            <div class="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                {% if api_key %}
+                <div class="flex items-center bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs font-mono text-purple-300 min-h-[44px] justify-between gap-4 select-all">
+                    <span id="api-key-text" class="truncate max-w-[200px] sm:max-w-[320px] font-bold">TGCloud_••••••••••••••••••••••••••••••••</span>
+                    <div class="flex gap-2">
+                        <button onclick="toggleApiKey()" class="text-[#94A3B8] hover:text-white p-1" title="Toggle visibility">
+                            <i id="toggle-eye-icon" class="fa-solid fa-eye-slash text-sm"></i>
+                        </button>
+                        <button onclick="copyApiKey()" class="text-[#94A3B8] hover:text-white p-1" title="Copy key">
+                            <i class="fa-regular fa-copy text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+                <form action="/admin/api-key/revoke" method="POST" class="shrink-0 w-full sm:w-auto">
+                    <input type="hidden" name="token" value="{{ token }}">
+                    <button type="submit" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/10 px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px]">
+                        Revoke Key
+                    </button>
+                </form>
+                <form action="/admin/api-key/generate" method="POST" class="shrink-0 w-full sm:w-auto">
+                    <input type="hidden" name="token" value="{{ token }}">
+                    <button type="submit" class="w-full btn-cta text-white px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[44px]">
+                        Regenerate Key
+                    </button>
+                </form>
+                {% else %}
+                <form action="/admin/api-key/generate" method="POST" class="w-full sm:w-auto">
+                    <input type="hidden" name="token" value="{{ token }}">
+                    <button type="submit" class="w-full btn-cta text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-h-[44px]">
+                        <i class="fa-solid fa-circle-plus"></i>Generate API Key
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <!-- Image Management Database with Gradient Borders -->
     <div class="border-gradient-wrapper">
         <div class="border-gradient-card p-4 sm:p-6 flex flex-col gap-6">
@@ -210,4 +260,40 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const rawApiKey = "{{ api_key or '' }}";
+let showKey = false;
+
+function toggleApiKey() {
+    const keyText = document.getElementById("api-key-text");
+    const icon = document.getElementById("toggle-eye-icon");
+    showKey = !showKey;
+    if (showKey) {
+        keyText.textContent = rawApiKey;
+        icon.className = "fa-solid fa-eye text-sm";
+    } else {
+        keyText.textContent = "TGCloud_••••••••••••••••••••••••••••••••";
+        icon.className = "fa-solid fa-eye-slash text-sm";
+    }
+}
+
+function copyApiKey() {
+    if (!rawApiKey) return;
+    navigator.clipboard.writeText(rawApiKey).then(() => {
+        alert("API Key copied to clipboard!");
+    }).catch(err => {
+        // Fallback copy method
+        const tempInput = document.createElement("input");
+        tempInput.value = rawApiKey;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        alert("API Key copied to clipboard!");
+    });
+}
+</script>
 {% endblock %}

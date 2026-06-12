@@ -42,3 +42,10 @@ class BannedUser(Base):
     telegram_id = Column(BigInteger, primary_key=True)
     banned_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     reason = Column(String(255), nullable=True)
+
+
+class AdminApiKey(Base):
+    __tablename__ = "admin_api_keys"
+
+    key = Column(String(255), primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
