@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aiogram.exceptions import TelegramBadRequest
 from pydantic import BaseModel
 
-from app.config import DOMAIN, STORAGE_CHANNEL_ID, SECRET_KEY, GUEST_LIMIT, USER_LIMIT, BOT_USERNAME, BOT_TOKEN, ADMIN_USER_IDS
+from app.config import DOMAIN, STORAGE_CHANNEL_ID, SECRET_KEY, GUEST_LIMIT, USER_LIMIT, BOT_USERNAME, BOT_TOKEN, ADMIN_USER_IDS, LOGO_URL
 from app.database import get_db
 from app.models import Image, Analytics, BannedUser, AdminApiKey
 from app.schemas import UploadSuccessResponse, StatsItem, ImageResponse
@@ -34,6 +34,7 @@ templates = Jinja2Templates(directory="app/templates")
 # Register global context variables for template generation
 templates.env.globals["bot_username"] = BOT_USERNAME
 templates.env.globals["domain"] = DOMAIN
+templates.env.globals["logo_url"] = LOGO_URL
 
 # WebApp Authentication Helper
 def verify_telegram_webapp_data(token: str, init_data: str) -> dict | None:

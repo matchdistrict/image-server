@@ -7,6 +7,7 @@ load_dotenv()
 DOMAIN = os.getenv("DOMAIN", "https://tg-image-url-bot-production.up.railway.app").rstrip("/")
 WEB_PORT = int(os.getenv("PORT") or os.getenv("WEB_PORT", "8000"))
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-change-in-production")
+LOGO_URL = os.getenv("LOGO_URL", "https://tg-image-url-bot-production.up.railway.app/raw/5zzogd")
 
 # Telegram Bot Settings
 BOT_TOKEN = os.getenv("BOT_TOKEN")
