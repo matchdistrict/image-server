@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - STORAGE_CHANNEL_ID=${STORAGE_CHANNEL_ID}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/tgcloud
+      - REDIS_URL=redis://cache:6379/0
+      - SECRET_KEY=${SECRET_KEY:-super-secret-production-key}
+      - DOMAIN=${DOMAIN:-http://localhost:8000}
+    depends_on:
+      - db
+      - cache
+    restart: always
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=tgcloud
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    restart: always
+
+volumes:
+  pgdata:
+  redisdata:

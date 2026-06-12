@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Image {{ image.slug }} - PictureMania{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl w-full flex flex-col gap-4 sm:gap-6 relative z-10">
+    <!-- Premium Image Preview Card with Gradient Borders -->
+    <div class="border-gradient-wrapper">
+        <div class="border-gradient-card p-4 sm:p-6 md:p-8 flex flex-col items-center gap-4 sm:gap-6">
+            <div class="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4 mb-2">
+                <div>
+                    <h1 class="font-outfit text-xl sm:text-2xl font-bold tracking-wide text-white">Image Preview</h1>
+                    <p class="text-xs text-[#64748B] mt-0.5">Slug: <code class="text-blue-400 font-mono font-medium">{{ image.slug }}</code></p>
+                </div>
+                <div class="text-left sm:text-right w-full sm:w-auto">
+                    <span class="text-xs sm:text-sm font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/10 inline-flex items-center">
+                        <i class="fa-solid fa-eye mr-1.5"></i>{{ image.views }} views
+                    </span>
+                    <p class="text-[9px] sm:text-[10px] text-[#64748B] mt-1.5"><i class="fa-regular fa-calendar-days mr-1"></i>{{ image.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+                </div>
+            </div>
+
+            <!-- Image wrapper -->
+            <div class="image-container w-full bg-black/40 backdrop-blur-md border border-white/5 rounded-2xl overflow-hidden flex justify-center items-center p-2 min-h-[200px] sm:min-h-[300px] max-h-[600px] relative">
+                {% if image.is_nsfw %}
+                    <div id="nsfw-overlay" class="absolute inset-0 bg-[#07080C]/95 backdrop-blur-2xl flex flex-col justify-center items-center text-center p-4 sm:p-6 z-20 rounded-2xl">
+                        <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-3 sm:mb-4 text-amber-500">
+                            <i class="fa-solid fa-triangle-exclamation text-2xl sm:text-3xl"></i>
+                        </div>
+                        <h3 class="font-outfit text-lg sm:text-xl font-bold text-white mb-1.5 sm:mb-2">NSFW Content Warning</h3>
+                        <p class="text-xs sm:text-sm text-[#94A3B8] max-w-md mb-5 sm:mb-6">This image has been automatically flagged as potential adult or sensitive content.</p>
+                        <button onclick="revealImage()" class="btn-cta text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold tracking-wide transition-all shadow-lg shadow-blue-500/20">
+                            Reveal Image
+                        </button>
+                    </div>
+                {% endif %}
+                <img src="/raw/{{ image.slug }}" alt="Image {{ image.slug }}" class="max-w-full max-h-[580px] rounded-xl object-contain shadow-2xl">
+            </div>
+
+            <!-- Actions Panel -->
+            <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] sm:text-xs font-semibold text-[#64748B] uppercase tracking-wider">Direct URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="direct-url" value="{{ domain }}/raw/{{ image.slug }}" readonly 
+                               class="input-glass flex-grow px-3 py-2 rounded-xl text-xs sm:text-sm font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
+                        <button onclick="copyLink('direct-url')" class="btn-glass text-blue-400 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0">
+                            <i class="fa-regular fa-copy"></i>Copy
+                        </button>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[10px] sm:text-xs font-semibold text-[#64748B] uppercase tracking-wider">HTML Embed Code</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="embed-code" value='<img src="{{ domain }}/raw/{{ image.slug }}" alt="PictureMania Image">' readonly 
+                               class="input-glass flex-grow px-3 py-2 rounded-xl text-xs sm:text-sm font-mono text-[#CBD5E1] border border-white/5 focus:outline-none min-w-0">
+                        <button onclick="copyLink('embed-code')" class="btn-glass text-blue-400 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shrink-0">
+                            <i class="fa-regular fa-copy"></i>Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full flex flex-col sm:flex-row justify-end gap-3 mt-4 border-t border-white/5 pt-4">
+                <a href="/raw/{{ image.slug }}" target="_blank" class="btn-glass text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-up-right-from-square text-xs"></i>Open Raw
+                </a>
+                <a href="/raw/{{ image.slug }}" download="picturemania_{{ image.slug }}" class="btn-cta text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-circle-down"></i>Download Image
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function revealImage() {
+    const overlay = document.getElementById('nsfw-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function copyLink(elementId) {
+    const input = document.getElementById(elementId);
+    if (input) {
+        input.select();
+        document.execCommand('copy');
+        alert('Copied to clipboard successfully!');
+    }
+}
+</script>
+{% endblock %}
