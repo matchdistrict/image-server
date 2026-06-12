@@ -90,12 +90,12 @@ async def check_message_exists(chat_id: int | str, message_id: int, slug: str) -
 
 @router.get("/", response_class=HTMLResponse)
 async def homepage_view(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @router.get("/stats", response_class=HTMLResponse)
 async def system_stats_view(request: Request, db: AsyncSession = Depends(get_db)):
     stats = await stats_service.get_stats(db)
-    return templates.TemplateResponse("stats.html", {"request": request, "stats": stats})
+    return templates.TemplateResponse(request=request, name="stats.html", context={"stats": stats})
 
 @router.get("/i/{slug}", response_class=HTMLResponse)
 async def image_preview_view(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
@@ -122,11 +122,14 @@ async def image_preview_view(slug: str, request: Request, db: AsyncSession = Dep
         user_agent=request.headers.get("user-agent")
     )
     
-    return templates.TemplateResponse("image.html", {
-        "request": request, 
-        "image": image, 
-        "domain": DOMAIN
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="image.html",
+        context={
+            "image": image,
+            "domain": DOMAIN
+        }
+    )
 
 @router.get("/delete/{slug}/{delete_token}", response_class=HTMLResponse)
 async def delete_image_view(slug: str, delete_token: str, request: Request, db: AsyncSession = Depends(get_db)):
@@ -145,11 +148,14 @@ async def delete_image_view(slug: str, delete_token: str, request: Request, db: 
     await cache_service.delete(f"image_cache:{slug}:thumb")
     await cache_service.delete(f"msg_exists:{slug}")
     
-    return templates.TemplateResponse("error.html", {
-        "request": request,
-        "error_code": "Deleted",
-        "message": f"Image with slug '{slug}' has been permanently deleted from storage."
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={
+            "error_code": "Deleted",
+            "message": f"Image with slug '{slug}' has been permanently deleted from storage."
+        }
+    )
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard_view(
@@ -159,11 +165,15 @@ async def admin_dashboard_view(
     db: AsyncSession = Depends(get_db)
 ):
     if not verify_admin_token(token):
-        return templates.TemplateResponse("error.html", {
-            "request": request,
-            "error_code": "401",
-            "message": "Unauthorized access. Invalid or missing administrator session token."
-        }, status_code=401)
+        return templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={
+                "error_code": "401",
+                "message": "Unauthorized access. Invalid or missing administrator session token."
+            },
+            status_code=401
+        )
         
     # Get stats
     stats = await stats_service.get_stats(db)
@@ -180,13 +190,16 @@ async def admin_dashboard_view(
     res = await db.execute(stmt)
     images = res.scalars().all()
     
-    return templates.TemplateResponse("admin.html", {
-        "request": request,
-        "stats": stats,
-        "images": images,
-        "token": token,
-        "search": search
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html",
+        context={
+            "stats": stats,
+            "images": images,
+            "token": token,
+            "search": search
+        }
+    )
 
 @router.post("/admin/delete/{slug}")
 async def admin_delete_image(

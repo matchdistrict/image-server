@@ -66,11 +66,15 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             status_code=exc.status_code,
             content={"detail": exc.detail}
         )
-    return templates.TemplateResponse("error.html", {
-        "request": request,
-        "error_code": str(exc.status_code),
-        "message": exc.detail
-    }, status_code=exc.status_code)
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={
+            "error_code": str(exc.status_code),
+            "message": exc.detail
+        },
+        status_code=exc.status_code
+    )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -79,11 +83,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             status_code=422,
             content={"detail": exc.errors()}
         )
-    return templates.TemplateResponse("error.html", {
-        "request": request,
-        "error_code": "422",
-        "message": f"Input validation failed: {str(exc.errors())}"
-    }, status_code=422)
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={
+            "error_code": "422",
+            "message": f"Input validation failed: {str(exc.errors())}"
+        },
+        status_code=422
+    )
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -93,8 +101,12 @@ async def global_exception_handler(request: Request, exc: Exception):
             status_code=500,
             content={"detail": "Internal Server Error"}
         )
-    return templates.TemplateResponse("error.html", {
-        "request": request,
-        "error_code": "500",
-        "message": "An unexpected server error occurred. Please try again later."
-    }, status_code=500)
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
+        context={
+            "error_code": "500",
+            "message": "An unexpected server error occurred. Please try again later."
+        },
+        status_code=500
+    )
