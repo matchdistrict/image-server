@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code files
 COPY . .
 
+# Expose port (metadata)
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run uvicorn dynamically binding to the port assigned by Railway
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

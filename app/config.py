@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Server Settings
-DOMAIN = os.getenv("DOMAIN", "http://localhost:8000").rstrip("/")
-WEB_PORT = int(os.getenv("WEB_PORT", "8000"))
+DOMAIN = os.getenv("DOMAIN", "https://tg-image-url-bot-production.up.railway.app").rstrip("/")
+WEB_PORT = int(os.getenv("PORT") or os.getenv("WEB_PORT", "8000"))
 SECRET_KEY = os.getenv("SECRET_KEY", "super-secret-key-change-in-production")
 
 # Telegram Bot Settings
@@ -23,9 +23,11 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     # Local fallback to SQLite if PostgreSQL is not specified
     DATABASE_URL = "sqlite+aiosqlite:///./images_db.sqlite"
-elif DATABASE_URL.startswith("postgresql://"):
-    # Convert postgresql scheme to async pg
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    if DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
 # Redis Caching Settings
 REDIS_URL = os.getenv("REDIS_URL", "")
