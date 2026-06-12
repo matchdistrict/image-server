@@ -183,10 +183,8 @@ async def homepage_view(request: Request, db: AsyncSession = Depends(get_db)):
             request.session.clear()
             return templates.TemplateResponse(request=request, name="index.html")
 
-        # If the user is an administrator, redirect immediately to the admin panel
+        # Determine if the user is an administrator
         is_admin = user_id in ADMIN_USER_IDS
-        if is_admin:
-            return RedirectResponse(url=f"/admin?token={SECRET_KEY}", status_code=303)
 
         # Query all images uploaded by this user
         stmt = select(Image).where(Image.uploaded_by == user_id).order_by(Image.created_at.desc())
@@ -201,44 +199,53 @@ async def homepage_view(request: Request, db: AsyncSession = Depends(get_db)):
         stmt_storage = select(func.sum(Image.file_size)).where(Image.uploaded_by == user_id)
         total_storage_bytes = (await db.execute(stmt_storage)).scalar() or 0
         
-        # Query daily uploads count
-        day_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
-        stmt_daily = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= day_ago)
+        # Query daily uploads count reset at 12:00 AM IST
+        IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        now_ist = datetime.datetime.now(IST)
+        today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+
+        stmt_daily = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= today_midnight_utc_naive)
         daily_count = (await db.execute(stmt_daily)).scalar() or 0
         
-        # Query the oldest upload in the last 24h to calculate countdown
-        stmt_oldest = select(Image.created_at).where(
-            Image.uploaded_by == user_id, 
-            Image.created_at >= day_ago
-        ).order_by(Image.created_at.asc()).limit(1)
-        oldest_time = (await db.execute(stmt_oldest)).scalar()
-        
-        countdown_seconds = 0
-        if oldest_time:
-            if oldest_time.tzinfo is None:
-                oldest_time = oldest_time.replace(tzinfo=datetime.timezone.utc)
-            reset_time = oldest_time + datetime.timedelta(days=1)
-            now_utc = datetime.datetime.now(datetime.timezone.utc)
-            countdown_seconds = max(0, int((reset_time - now_utc).total_seconds()))
+        # Quota countdown resets at 12:00 AM IST of the next day
+        next_midnight_ist = today_midnight_ist + datetime.timedelta(days=1)
+        countdown_seconds = max(0, int((next_midnight_ist - now_ist).total_seconds()))
             
-        # Group images by year
-        images_by_year = {}
+        # Group images by year → month
+        MONTH_NAMES = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+        images_by_year_month: dict[int, dict[int, list]] = {}
         for img in images:
             year = img.created_at.year
-            if year not in images_by_year:
-                images_by_year[year] = []
-            images_by_year[year].append(img)
-            
-        # Sort years descending
-        sorted_years = sorted(images_by_year.keys(), reverse=True)
-        images_grouped = [(year, images_by_year[year]) for year in sorted_years]
+            month = img.created_at.month
+            if year not in images_by_year_month:
+                images_by_year_month[year] = {}
+            if month not in images_by_year_month[year]:
+                images_by_year_month[year][month] = []
+            images_by_year_month[year][month].append(img)
+
+        # Sort years descending, months descending within each year
+        sorted_years = sorted(images_by_year_month.keys(), reverse=True)
+        images_grouped = [
+            (
+                year,
+                [
+                    (MONTH_NAMES[month - 1], images_by_year_month[year][month])
+                    for month in sorted(images_by_year_month[year].keys(), reverse=True)
+                ]
+            )
+            for year in sorted_years
+        ]
         
         user_stats = {
             "lifetime_uploads": lifetime_uploads,
             "daily_uploads": daily_count,
-            "limit": USER_LIMIT,
-            "remaining": max(0, USER_LIMIT - daily_count),
-            "role": "👤 Standard User",
+            "limit": "Unlimited" if is_admin else USER_LIMIT,
+            "remaining": "Unlimited" if is_admin else max(0, USER_LIMIT - daily_count),
+            "role": "🛠️ Administrator" if is_admin else "👤 Standard User",
             "total_storage_bytes": total_storage_bytes,
             "countdown_seconds": countdown_seconds
         }
@@ -590,7 +597,7 @@ async def thumbnail_image_endpoint(slug: str, request: Request, db: AsyncSession
         raise HTTPException(status_code=404, detail="Image not found")
         
     # Check if Telegram message is deleted
-    if not await check_message_exists(STORAGE_CHANNEL_ID, image.message_id, slug):
+    if not await check_message_exists(STORAGE_CHANNEL_ID, message_id=image.message_id, slug=slug):
         await db.delete(image)
         await db.commit()
         await cache_service.delete(f"image_cache:{slug}:full")
@@ -729,8 +736,12 @@ async def api_upload_image(
             
     # Check User daily limit if authenticated via session
     if session_user_id and not is_admin_session:
-        day_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
-        stmt = select(func.count(Image.id)).where(Image.uploaded_by == session_user_id, Image.created_at >= day_ago)
+        IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        now_ist = datetime.datetime.now(IST)
+        today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        
+        stmt = select(func.count(Image.id)).where(Image.uploaded_by == session_user_id, Image.created_at >= today_midnight_utc_naive)
         daily_count = (await db.execute(stmt)).scalar() or 0
         if daily_count >= USER_LIMIT:
             raise HTTPException(status_code=429, detail=f"Daily limit of {USER_LIMIT} uploads reached.")

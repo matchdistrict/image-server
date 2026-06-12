@@ -40,8 +40,12 @@ async def is_user_banned(db, user_id: int) -> bool:
     return res.scalar() is not None
 
 async def check_user_limit(db, user_id: int) -> bool:
-    day_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
-    stmt = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= day_ago)
+    IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    now_ist = datetime.datetime.now(IST)
+    today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    
+    stmt = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= today_midnight_utc_naive)
     count = (await db.execute(stmt)).scalar() or 0
     return count < USER_LIMIT
 
@@ -111,14 +115,18 @@ async def process_media_group(media_group_id: str):
         if await is_user_banned(db, user_id):
             await status_msg.edit_text("❌ You are banned from using this service.")
             return
- 
+  
         # 2. Admin verification
         is_admin = user_id in ADMIN_USER_IDS
 
         # 3. Accumulated Limit Check (bypassed for admins)
         if not is_admin:
-            day_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
-            stmt = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= day_ago)
+            IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+            now_ist = datetime.datetime.now(IST)
+            today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            
+            stmt = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= today_midnight_utc_naive)
             count = (await db.execute(stmt)).scalar() or 0
             if count + len(valid_media_messages) > USER_LIMIT:
                 await status_msg.edit_text(f"❌ Uploading this album would exceed your daily limit of {USER_LIMIT} images. Remaining capacity: {max(0, USER_LIMIT - count)}.")
@@ -279,7 +287,7 @@ async def help_command(message: Message):
         "4. You can send multiple images at a time (albums up to 10 files).\n"
         "5. You will receive a direct preview link, a raw image URL, and a deletion token.\n\n"
         "<b>Upload Limits:</b>\n"
-        f"- Up to {USER_LIMIT} uploads per 24 hours per Telegram user."
+        f"- Up to {USER_LIMIT} uploads per day (resets daily at 12:00 AM IST)."
     )
     await message.reply(help_text)
 
@@ -293,9 +301,13 @@ async def stats_command(message: Message):
         stmt_lifetime = select(func.count(Image.id)).where(Image.uploaded_by == user_id)
         lifetime_uploads = (await db.execute(stmt_lifetime)).scalar() or 0
         
-        # Daily Uploads (last 24 hours)
-        day_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
-        stmt_daily = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= day_ago)
+        # Daily Uploads (since 12:00 AM IST)
+        IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+        now_ist = datetime.datetime.now(IST)
+        today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        
+        stmt_daily = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= today_midnight_utc_naive)
         daily_count = (await db.execute(stmt_daily)).scalar() or 0
         
     role_text = "👑 Administrator" if is_admin else "👤 Standard User"
@@ -307,7 +319,7 @@ async def stats_command(message: Message):
         f"• <b>User ID:</b> <code>{user_id}</code>\n"
         f"• <b>Role:</b> {role_text}\n"
         f"• <b>Lifetime Uploads:</b> {lifetime_uploads} images\n\n"
-        f"📊 <b>Daily Usage (24-Hour Window)</b>\n"
+        f"📊 <b>Daily Usage (Resets at 12:00 AM IST)</b>\n"
         f"• <b>Uploaded Today:</b> {daily_count} / {limit_text} images\n"
         f"• <b>Remaining Capacity:</b> {remaining_text} images"
     )
@@ -368,12 +380,56 @@ async def admin_command(message: Message):
         "Here are your administrator-only commands:\n\n"
         "• /admin - Display this admin control panel and web link.\n"
         "• /backup - Generate and download a database SQL dump.\n"
+        "• /dblink - Retrieve invite link to database channel.\n"
         "• /protection [on|off] - Enable/disable the \"Kick All\" channel member protection.\n"
         "• /kickall [on|off] - Shortcut command for channel protection.\n\n"
         "🔗 <b>Web Admin Dashboard:</b>\n"
         f"{admin_link}"
     )
     await message.reply(response_text, disable_web_page_preview=True)
+
+@router.message(Command("dblink"))
+async def dblink_command(message: Message):
+    user_id = message.from_user.id
+    if user_id not in ADMIN_USER_IDS:
+        await message.reply("❌ Unauthorized access.")
+        return
+        
+    try:
+        # Get storage channel details
+        chat = await bot.get_chat(chat_id=STORAGE_CHANNEL_ID)
+        
+        # Check if the channel is public or has a custom invite link
+        if chat.username:
+            channel_link = f"https://t.me/{chat.username}"
+        else:
+            try:
+                invite_link = chat.invite_link
+                if not invite_link:
+                    invite_link = await bot.export_chat_invite_link(chat_id=STORAGE_CHANNEL_ID)
+                channel_link = invite_link
+            except Exception as invite_err:
+                logger.warning(f"Could not export invite link: {invite_err}")
+                # Fallback to direct client link format
+                channel_link = f"https://t.me/c/{str(STORAGE_CHANNEL_ID).replace('-100', '')}"
+                
+        await message.reply(
+            f"📁 <b>Database Storage Channel Link:</b>\n\n"
+            f"• <b>Channel Name:</b> {chat.title or 'Storage Channel'}\n"
+            f"• <b>Channel ID:</b> <code>{STORAGE_CHANNEL_ID}</code>\n"
+            f"• <b>Link:</b> {channel_link}",
+            disable_web_page_preview=True
+        )
+    except Exception as e:
+        logger.error(f"Failed to retrieve database link: {e}")
+        fallback_link = f"https://t.me/c/{str(STORAGE_CHANNEL_ID).replace('-100', '')}"
+        await message.reply(
+            f"📁 <b>Database Storage Channel Details:</b>\n\n"
+            f"• <b>Channel ID:</b> <code>{STORAGE_CHANNEL_ID}</code>\n"
+            f"• <b>Fallback Link (Private format):</b> {fallback_link}\n\n"
+            f"⚠️ <i>Failed to fetch live info: {str(e)}</i>",
+            disable_web_page_preview=True
+        )
 
 @router.message(Command("protection", "kickall"))
 async def protection_command(message: Message):
@@ -437,7 +493,8 @@ async def handle_chat_member_updated(event: ChatMemberUpdated):
         if await settings_service.is_kick_all_enabled(db):
             try:
                 await bot.ban_chat_member(chat_id=event.chat.id, user_id=user_id)
-                logger.info(f"Kicked/Banned user {user_id} from chat {event.chat.id} due to active Channel Protection")
+                await bot.unban_chat_member(chat_id=event.chat.id, user_id=user_id)
+                logger.info(f"Kicked user {user_id} from chat {event.chat.id} due to active Channel Protection")
             except Exception as e:
                 logger.error(f"Failed to kick user {user_id} from chat {event.chat.id}: {e}")
 
