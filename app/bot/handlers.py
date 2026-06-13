@@ -49,7 +49,7 @@ async def is_user_banned(db, user_id: int) -> bool:
 
 async def check_user_limit(db, user_id: int) -> bool:
     IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-    now_ist = datetime.timezone.now(IST)
+    now_ist = datetime.datetime.now(IST)
     today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
     
@@ -130,7 +130,7 @@ async def process_media_group(media_group_id: str):
         # 3. Accumulated Limit Check (bypassed for admins)
         if not is_admin:
             IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-            now_ist = datetime.timezone.now(IST)
+            now_ist = datetime.datetime.now(IST)
             today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
             today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
             
@@ -323,25 +323,38 @@ async def stats_command(message: Message):
         
         # Daily Uploads (since 12:00 AM IST)
         IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-        now_ist = datetime.timezone.now(IST)
+        now_ist = datetime.datetime.now(IST)
         today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
         today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         
         stmt_daily = select(func.count(Image.id)).where(Image.uploaded_by == user_id, Image.created_at >= today_midnight_utc_naive)
         daily_count = (await db.execute(stmt_daily)).scalar() or 0
         
-    role_text = "👑 Administrator" if is_admin else "👤 Standard User"
+        # Disk Used query
+        stmt_storage = select(func.sum(Image.file_size)).where(Image.uploaded_by == user_id)
+        total_storage_bytes = (await db.execute(stmt_storage)).scalar() or 0
+        
     limit_text = "Unlimited" if is_admin else str(USER_LIMIT)
     remaining_text = "Unlimited" if is_admin else str(max(0, USER_LIMIT - daily_count))
     
+    # Format Disk Used
+    if total_storage_bytes >= 1073741824:
+        disk_used_text = f"{total_storage_bytes / 1073741824:.2f} GB".rstrip('0').rstrip('.')
+    elif total_storage_bytes >= 1048576:
+        disk_used_text = f"{total_storage_bytes / 1048576:.2f} MB".rstrip('0').rstrip('.')
+    elif total_storage_bytes >= 1024:
+        disk_used_text = f"{total_storage_bytes / 1024:.1f} KB".rstrip('0').rstrip('.')
+    else:
+        disk_used_text = f"{total_storage_bytes} Bytes"
+        
     stats_text = (
-        "👤 <b>Your Account Statistics</b>\n\n"
+        "<b>Your Account Statistics</b>\n\n"
         f"• <b>User ID:</b> <code>{user_id}</code>\n"
-        f"• <b>Role:</b> {role_text}\n"
         f"• <b>Lifetime Uploads:</b> {lifetime_uploads} images\n\n"
-        f"📊 <b>Daily Usage (Resets at 12:00 AM IST)</b>\n"
+        "- <b>Daily Usage (Resets at 12:00 AM IST)</b>\n"
         f"• <b>Uploaded Today:</b> {daily_count} / {limit_text} images\n"
-        f"• <b>Remaining Capacity:</b> {remaining_text} images"
+        f"• <b>Remaining Capacity:</b> {remaining_text} images\n"
+        f"• <b>Disk Used:</b> {disk_used_text}"
     )
     await message.reply(stats_text)
 
