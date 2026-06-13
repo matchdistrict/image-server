@@ -21,6 +21,11 @@ if raw_channel_id:
 else:
     STORAGE_CHANNEL_ID = None
 
+# Telegram MTProto Settings (Telethon — for direct channel uploads/downloads)
+TELEGRAM_API_ID = int(os.getenv("TELEGRAM_API_ID", "0"))
+TELEGRAM_API_HASH = os.getenv("TELEGRAM_API_HASH", "")
+TELETHON_SESSION_STRING = os.getenv("TELETHON_SESSION_STRING", "")
+
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is not configured in the environment variables!")
 

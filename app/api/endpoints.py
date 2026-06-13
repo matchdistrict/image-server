@@ -26,6 +26,7 @@ from app.services.moderation_service import moderation_service
 from app.services.stats_service import stats_service
 from app.services.backup_service import backup_service
 from app.services.settings_service import settings_service
+from app.services.telethon_service import telethon_service
 from app.bot.bot_instance import bot
 from aiogram.types import BufferedInputFile
 
@@ -628,10 +629,6 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
         delete_local_file(slug)
         raise HTTPException(status_code=404, detail="Image not found")
         
-    # 1. Local Bypass serving
-    local_path = os.path.join("local_storage", slug)
-    if os.path.exists(local_path):
-        return FileResponse(local_path, media_type=image.mime_type)
 
     # 2. Check Cache
     cached_data = await cache_service.get(cache_key)
@@ -650,26 +647,34 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
             }
         )
         
-    # 3. Cache Miss - Fetch from Telegram Bot API securely
+    # 3. Cache Miss — fetch from Telegram
     try:
-        tg_file = await bot.get_file(image.file_id)
-        if not tg_file.file_path:
-            raise ValueError("File path not available")
+        if image.file_id.startswith("tl_msg_"):
+            # Telethon MTProto download — works for any file size
+            msg_id = int(image.file_id.replace("tl_msg_", ""))
+            image_bytes = await telethon_service.download_file(msg_id)
+        else:
+            # Legacy Bot API download (limited to 20 MB)
+            tg_file = await bot.get_file(image.file_id)
+            if not tg_file.file_path:
+                raise ValueError("File path not available")
+            buffer = io.BytesIO()
+            await bot.download_file(tg_file.file_path, destination=buffer)
+            image_bytes = buffer.getvalue()
             
-        buffer = io.BytesIO()
-        await bot.download_file(tg_file.file_path, destination=buffer)
-        image_bytes = buffer.getvalue()
         if not image_bytes:
             raise ValueError("Failed to retrieve file contents")
         
-        # Optimize image with Pillow
-        optimized_bytes = image_service.validate_and_optimize(image_bytes)
+        # Optimize image with Pillow (images only)
+        mime = (image.mime_type or "").lower()
+        if mime.startswith("image/"):
+            image_bytes = image_service.validate_and_optimize(image_bytes)
         
         # Save to Cache
-        await cache_service.set(cache_key, optimized_bytes, expire=86400)
+        await cache_service.set(cache_key, image_bytes, expire=86400)
         
         return Response(
-            content=optimized_bytes,
+            content=image_bytes,
             media_type=image.mime_type,
             headers={
                 "Cache-Control": "public, max-age=86400",
@@ -698,25 +703,6 @@ async def thumbnail_image_endpoint(slug: str, request: Request, db: AsyncSession
         delete_local_file(slug)
         raise HTTPException(status_code=404, detail="Image not found")
         
-    # 1. Local Bypass serving
-    local_path = os.path.join("local_storage", slug)
-    if os.path.exists(local_path):
-        mime = (image.mime_type or "").lower()
-        if not mime.startswith("image/"):
-            if mime.startswith("video/"):
-                svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="300" height="300"><rect width="24" height="24" rx="4" fill="#0A0F1D" stroke="#3B82F6" stroke-width="1"/><path d="M10 8v8l6-4-6-4z" fill="#3B82F6"/></svg>'
-            elif mime == "application/pdf" or "document" in mime or "word" in mime or "excel" in mime or "powerpoint" in mime or mime.startswith("text/") or mime in ["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]:
-                svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="300" height="300"><rect width="24" height="24" rx="4" fill="#0A0F1D" stroke="#10B981" stroke-width="1"/><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="#10B981"/></svg>'
-            else:
-                svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="300" height="300"><rect width="24" height="24" rx="4" fill="#0A0F1D" stroke="#64748B" stroke-width="1"/><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 5V3.5L18.5 9H13z" fill="#64748B"/></svg>'
-            return Response(content=svg_content.encode("utf-8"), media_type="image/svg+xml")
-        try:
-            with open(local_path, "rb") as f:
-                original_bytes = f.read()
-            thumb_bytes = image_service.generate_thumbnail(original_bytes)
-            return Response(content=thumb_bytes, media_type=image.mime_type)
-        except Exception:
-            return FileResponse(local_path, media_type=image.mime_type)
 
     # 2. Check Cache
     cached_data = await cache_service.get(cache_key)
@@ -747,10 +733,17 @@ async def thumbnail_image_endpoint(slug: str, request: Request, db: AsyncSession
 
     try:
         # Fetch original from Telegram
-        tg_file = await bot.get_file(image.file_id)
-        buffer = io.BytesIO()
-        await bot.download_file(tg_file.file_path, destination=buffer)
-        original_bytes = buffer.getvalue()
+        if image.file_id.startswith("tl_msg_"):
+            # Telethon MTProto download — works for any file size
+            msg_id = int(image.file_id.replace("tl_msg_", ""))
+            original_bytes = await telethon_service.download_file(msg_id)
+        else:
+            # Legacy Bot API download (limited to 20 MB)
+            tg_file = await bot.get_file(image.file_id)
+            buffer = io.BytesIO()
+            await bot.download_file(tg_file.file_path, destination=buffer)
+            original_bytes = buffer.getvalue()
+            
         if not original_bytes:
             raise ValueError("Failed to download file content")
             
@@ -968,8 +961,9 @@ async def api_upload_image(
     try:
         file_bytes = await file.read()
         
-        # Enforce size limit: 10MB for guest / standard users, 2GB for admin bypass
-        max_allowed_size = 2 * 1024 * 1024 * 1024 if is_admin else 10 * 1024 * 1024
+        # Enforce size limit: 10MB for guest/standard users, 50MB for admins (Telegram Bot API ceiling)
+        # Hard cap at 50MB — Telegram Bot API upload ceiling, applies to all users including admins
+        max_allowed_size = 50 * 1024 * 1024
         if len(file_bytes) > max_allowed_size:
             limit_mb = max_allowed_size // (1024 * 1024)
             raise ValueError(f"File size exceeds the {limit_mb}MB limit.")
@@ -1001,61 +995,43 @@ async def api_upload_image(
     if file.content_type.startswith("image/"):
         is_nsfw = moderation_service.check_nsfw(optimized_bytes)
     
-    # Generate slug first to use for local storage path
+    # Generate slug for the new file entry
     slug = await generate_unique_slug(db)
     
-    # 5. Upload to storage channel / Local Storage fallback
+    # 5. Upload to Telegram storage channel via MTProto (Telethon) — mandatory, no local fallback
     file_id = None
     file_unique_id = None
     message_id = None
     
-    # Always write to local storage if file is larger than 20MB (to bypass Telegram download limits later)
-    if file_size > 20 * 1024 * 1024:
-        os.makedirs("local_storage", exist_ok=True)
-        local_path = os.path.join("local_storage", slug)
+    uploader_name = request.session.get("username", "Web API")
+    user_id_str = str(session_user_id) if session_user_id else "Guest"
+    caption_text = f"👤 Uploaded by: {uploader_name} (ID: {user_id_str})"
+    
+    try:
+        file_id, file_unique_id, message_id = await telethon_service.upload_file(
+            file_bytes=optimized_bytes,
+            filename=file.filename or "upload",
+            caption=caption_text,
+            uploader_id=session_user_id,
+        )
+    except Exception as e:
+        logger.error(f"Telethon channel upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload to Telegram storage channel failed: {e}")
+    
+    # Attach moderation inline keyboard via bot (cannot be set by Telethon directly)
+    if session_user_id:
         try:
-            with open(local_path, "wb") as f:
-                f.write(optimized_bytes)
-        except Exception as local_write_err:
-            logger.error(f"Failed to write larger file locally: {local_write_err}")
-            raise HTTPException(status_code=500, detail="Local storage allocation failed.")
-            
-    # Try Telegram upload if <= 50MB (Telegram's maximum payload size for standard Bot API uploads)
-    if file_size <= 50 * 1024 * 1024:
-        try:
-            uploader_name = request.session.get("username", "Web API")
-            user_id_str = str(session_user_id) if session_user_id else "Guest"
-            caption_text = f"👤 Uploaded by: {uploader_name} (ID: {user_id_str})"
-            mod_markup = None
-            if session_user_id:
-                mod_markup = InlineKeyboardMarkup(inline_keyboard=[[
+            await bot.edit_message_reply_markup(
+                chat_id=STORAGE_CHANNEL_ID,
+                message_id=message_id,
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                     InlineKeyboardButton(text="🚫 Ban User", callback_data=f"ban:{session_user_id}"),
                     InlineKeyboardButton(text="✅ Unban User", callback_data=f"unban:{session_user_id}")
                 ]])
-                
-            input_file = BufferedInputFile(optimized_bytes, filename=file.filename or "image.jpg")
-            sent_msg = await bot.send_document(
-                chat_id=STORAGE_CHANNEL_ID,
-                document=input_file,
-                caption=caption_text,
-                reply_markup=mod_markup
             )
-            file_id = sent_msg.document.file_id if sent_msg.document else sent_msg.photo[-1].file_id
-            file_unique_id = sent_msg.document.file_unique_id if sent_msg.document else sent_msg.photo[-1].file_unique_id
-            message_id = sent_msg.message_id
-        except Exception as e:
-            # If large file local copy succeeded, fallback to local database-only entry
-            if file_size > 20 * 1024 * 1024:
-                file_id = f"local_{slug}"
-                file_unique_id = f"local_uid_{slug}"
-                message_id = 0
-            else:
-                raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
-    else:
-        # Over 50MB: Saved strictly local, database-only entry
-        file_id = f"local_{slug}"
-        file_unique_id = f"local_uid_{slug}"
-        message_id = 0
+        except Exception as markup_err:
+            # Non-critical — file is already uploaded; log and continue
+            logger.warning(f"Could not attach moderation markup to message {message_id}: {markup_err}")
         
     # Check if the image already exists in the database
     stmt = select(Image).where(Image.file_unique_id == file_unique_id)

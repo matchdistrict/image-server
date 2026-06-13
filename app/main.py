@@ -13,6 +13,7 @@ from app.api.endpoints import router as api_router, templates
 from app.bot.bot_instance import bot, dp
 from app.bot.handlers import router as bot_router
 from app.config import STORAGE_CHANNEL_ID, SECRET_KEY
+from app.services.telethon_service import telethon_service
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,9 @@ async def lifespan(app: FastAPI):
             f"Telegram API returned: {auth_err}"
         )
 
+    logger.info("Connecting Telethon MTProto client...")
+    await telethon_service.connect()
+    
     logger.info("Starting Aiogram polling...")
     bot_task = asyncio.create_task(dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types()))
     
@@ -81,6 +85,9 @@ async def lifespan(app: FastAPI):
             pass
     logger.info("Closing Telegram Bot session...")
     await bot.session.close()
+    
+    logger.info("Disconnecting Telethon MTProto client...")
+    await telethon_service.disconnect()
 
 app = FastAPI(
     title="PictureMania",
