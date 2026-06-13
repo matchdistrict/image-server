@@ -961,12 +961,17 @@ async def api_upload_image(
     try:
         file_bytes = await file.read()
         
-        # Enforce size limit: 10MB for guest/standard users, 50MB for admins (Telegram Bot API ceiling)
-        # Hard cap at 50MB — Telegram Bot API upload ceiling, applies to all users including admins
-        max_allowed_size = 50 * 1024 * 1024
+        # Size limits — Telethon MTProto handles uploads of any size up to 2 GB
+        # Guests:              50 MB  (no account = no large storage)
+        # Authenticated users: 2 GB  (Telethon MTProto ceiling; daily 1 GB quota still applies)
+        # Admins:              2 GB  (no daily quota)
+        if not session_user_id:
+            max_allowed_size = 50 * 1024 * 1024          # 50 MB for guests
+        else:
+            max_allowed_size = 2 * 1024 * 1024 * 1024    # 2 GB for all logged-in users
         if len(file_bytes) > max_allowed_size:
             limit_mb = max_allowed_size // (1024 * 1024)
-            raise ValueError(f"File size exceeds the {limit_mb}MB limit.")
+            raise ValueError(f"File size exceeds the {limit_mb} MB limit for your account type.")
             
         # Enforce daily limit check with the file size included
         if session_user_id and not is_admin_session:
