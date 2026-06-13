@@ -21,10 +21,12 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         try:
-            await conn.execute("ALTER TABLE images ADD COLUMN filename VARCHAR(255)")
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE images ADD COLUMN filename VARCHAR(255)"))
             logger.info("Database schema updated: Added 'filename' column to 'images' table.")
-        except Exception:
+        except Exception as e:
             # Column already exists, or database doesn't support the ALTER statement
+            logger.debug(f"Migration fallback (expected if column exists): {e}")
             pass
 
 bot_task = None
