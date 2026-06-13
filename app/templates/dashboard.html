@@ -115,6 +115,7 @@
     color: #fff;
     box-shadow: 0 8px 32px -4px rgba(99,102,241,0.55), 0 2px 8px rgba(0,0,0,0.4);
     transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+    touch-action: manipulation;
 }
 #fab-upload:hover {
     transform: scale(1.08);
@@ -155,6 +156,8 @@
     align-items: center;
     overflow-y: auto;
     animation: lbIn 0.22s cubic-bezier(0.16,1,0.3,1);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 #lightbox.open { display: flex; }
 @keyframes lbIn {
@@ -316,6 +319,8 @@
     flex-direction: column;
     overflow-y: auto;
     animation: lbIn 0.24s cubic-bezier(0.16,1,0.3,1);
+    overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 #tele-panel.open { display: flex; }
 
@@ -1183,6 +1188,18 @@
             }
         }
     }
+
+    // Prevent main body scrolling behavior on touchmove when modals are open on iOS
+    document.addEventListener('touchmove', function(e) {
+        const isLightboxOpen = document.getElementById('lightbox').classList.contains('open');
+        const isTelePanelOpen = document.getElementById('tele-panel').classList.contains('open');
+        if (isLightboxOpen || isTelePanelOpen) {
+            // Allow scrolling inside options or modal content, but lock body bounces
+            if (!e.target.closest('#lb-options') && !e.target.closest('#lb-embed-wrap') && !e.target.closest('.tele-body')) {
+                e.preventDefault();
+            }
+        }
+    }, { passive: false });
 
     // Keyboard support
     document.addEventListener('keydown', e => {
