@@ -5,9 +5,10 @@ import urllib.parse
 import logging
 import hmac
 import hashlib
+import os
 from typing import Optional
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Request, Form
-from fastapi.responses import HTMLResponse, Response, RedirectResponse
+from fastapi.responses import HTMLResponse, Response, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +38,15 @@ templates.env.globals["bot_username"] = BOT_USERNAME
 templates.env.globals["domain"] = DOMAIN
 templates.env.globals["logo_url"] = LOGO_URL
 templates.env.globals["admin_user_ids"] = ADMIN_USER_IDS
+
+# Local storage cleanup helper
+def delete_local_file(slug: str):
+    local_path = os.path.join("local_storage", slug)
+    if os.path.exists(local_path):
+        try:
+            os.remove(local_path)
+        except Exception as e:
+            logger.error(f"Failed to delete local file for {slug}: {e}")
 
 # WebApp Authentication Helper
 def verify_telegram_webapp_data(token: str, init_data: str) -> dict | None:
@@ -143,6 +153,8 @@ async def generate_unique_slug(db: AsyncSession) -> str:
 
 # Telegram message existence check helper
 async def check_message_exists(chat_id: int | str, message_id: int, slug: str) -> bool:
+    if message_id == 0:
+        return True
     cache_key = f"msg_exists:{slug}"
     cached = await cache_service.get(cache_key)
     if cached == b"1":
@@ -304,6 +316,7 @@ async def image_preview_view(slug: str, request: Request, db: AsyncSession = Dep
         await db.commit()
         await cache_service.delete(f"image_cache:{slug}:full")
         await cache_service.delete(f"image_cache:{slug}:thumb")
+        delete_local_file(slug)
         raise HTTPException(status_code=404, detail="Image not found")
         
     # Record view async
@@ -336,10 +349,11 @@ async def delete_image_view(slug: str, delete_token: str, request: Request, db: 
     await db.delete(image)
     await db.commit()
     
-    # Delete from Cache
+    # Delete from Cache and Storage
     await cache_service.delete(f"image_cache:{slug}:full")
     await cache_service.delete(f"image_cache:{slug}:thumb")
     await cache_service.delete(f"msg_exists:{slug}")
+    delete_local_file(slug)
     
     return templates.TemplateResponse(
         request=request,
@@ -397,7 +411,7 @@ async def admin_dashboard_view(
     banned_res = await db.execute(banned_stmt)
     banned_users = banned_res.scalars().all()
     banned_ids = {u.telegram_id for u in banned_users}
-
+ 
     # Get all active uploaders to build a userlist
     uploader_stmt = select(
         Image.uploaded_by,
@@ -458,6 +472,7 @@ async def admin_delete_image(
     await cache_service.delete(f"image_cache:{slug}:full")
     await cache_service.delete(f"image_cache:{slug}:thumb")
     await cache_service.delete(f"msg_exists:{slug}")
+    delete_local_file(slug)
     
     return RedirectResponse(url=f"/admin?token={token}", status_code=303)
 
@@ -585,15 +600,21 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
         
-    # Check if Telegram message is deleted
+    # Check if Telegram message is deleted (only if message_id is not 0 / local file bypass)
     if not await check_message_exists(STORAGE_CHANNEL_ID, image.message_id, slug):
         await db.delete(image)
         await db.commit()
         await cache_service.delete(cache_key)
         await cache_service.delete(f"image_cache:{slug}:thumb")
+        delete_local_file(slug)
         raise HTTPException(status_code=404, detail="Image not found")
         
-    # 1. Check Cache
+    # 1. Local Bypass serving
+    local_path = os.path.join("local_storage", slug)
+    if os.path.exists(local_path):
+        return FileResponse(local_path, media_type=image.mime_type)
+
+    # 2. Check Cache
     cached_data = await cache_service.get(cache_key)
     
     if cached_data:
@@ -610,7 +631,7 @@ async def raw_image_endpoint(slug: str, request: Request, db: AsyncSession = Dep
             }
         )
         
-    # 2. Cache Miss - Fetch from Telegram Bot API securely
+    # 3. Cache Miss - Fetch from Telegram Bot API securely
     try:
         tg_file = await bot.get_file(image.file_id)
         if not tg_file.file_path:
@@ -649,15 +670,36 @@ async def thumbnail_image_endpoint(slug: str, request: Request, db: AsyncSession
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
         
-    # Check if Telegram message is deleted
+    # Check if Telegram message is deleted (only if message_id is not 0 / local file bypass)
     if not await check_message_exists(STORAGE_CHANNEL_ID, message_id=image.message_id, slug=slug):
         await db.delete(image)
         await db.commit()
         await cache_service.delete(f"image_cache:{slug}:full")
         await cache_service.delete(cache_key)
+        delete_local_file(slug)
         raise HTTPException(status_code=404, detail="Image not found")
         
-    # Check Cache
+    # 1. Local Bypass serving
+    local_path = os.path.join("local_storage", slug)
+    if os.path.exists(local_path):
+        mime = (image.mime_type or "").lower()
+        if not mime.startswith("image/"):
+            if mime.startswith("video/"):
+                svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="300" height="300"><rect width="24" height="24" rx="4" fill="#0A0F1D" stroke="#3B82F6" stroke-width="1"/><path d="M10 8v8l6-4-6-4z" fill="#3B82F6"/></svg>'
+            elif mime == "application/pdf" or "document" in mime or "word" in mime or "excel" in mime or "powerpoint" in mime or mime.startswith("text/") or mime in ["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]:
+                svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="300" height="300"><rect width="24" height="24" rx="4" fill="#0A0F1D" stroke="#10B981" stroke-width="1"/><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" fill="#10B981"/></svg>'
+            else:
+                svg_content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="300" height="300"><rect width="24" height="24" rx="4" fill="#0A0F1D" stroke="#64748B" stroke-width="1"/><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 5V3.5L18.5 9H13z" fill="#64748B"/></svg>'
+            return Response(content=svg_content.encode("utf-8"), media_type="image/svg+xml")
+        try:
+            with open(local_path, "rb") as f:
+                original_bytes = f.read()
+            thumb_bytes = image_service.generate_thumbnail(original_bytes)
+            return Response(content=thumb_bytes, media_type=image.mime_type)
+        except Exception:
+            return FileResponse(local_path, media_type=image.mime_type)
+
+    # 2. Check Cache
     cached_data = await cache_service.get(cache_key)
     
     if cached_data:
@@ -846,6 +888,7 @@ async def api_upload_image(
     # Check WebApp session authentication
     session_user_id = request.session.get("user_id")
     is_admin_session = session_user_id in ADMIN_USER_IDS if session_user_id else False
+    is_admin = is_admin_api or is_admin_session
     
     # 2. Rate Limiting Check for Guest IP (bypassed for Admin API and WebApp session)
     if not is_admin_api and not session_user_id:
@@ -871,9 +914,8 @@ async def api_upload_image(
     try:
         file_bytes = await file.read()
         
-        # Enforce size limit: 10MB for guest / standard users, 20MB for Admin API / Admin WebApp session
-        is_admin = is_admin_api or is_admin_session
-        max_allowed_size = 20 * 1024 * 1024 if is_admin else 10 * 1024 * 1024
+        # Enforce size limit: 10MB for guest / standard users, 2GB for admin bypass
+        max_allowed_size = 2 * 1024 * 1024 * 1024 if is_admin else 10 * 1024 * 1024
         if len(file_bytes) > max_allowed_size:
             limit_mb = max_allowed_size // (1024 * 1024)
             raise ValueError(f"File size exceeds the {limit_mb}MB limit.")
@@ -905,29 +947,61 @@ async def api_upload_image(
     if file.content_type.startswith("image/"):
         is_nsfw = moderation_service.check_nsfw(optimized_bytes)
     
-    # 5. Upload to storage channel
-    try:
-        uploader_name = request.session.get("username", "Web API")
-        user_id_str = str(session_user_id) if session_user_id else "Guest"
-        caption_text = f"👤 Uploaded by: {uploader_name} (ID: {user_id_str})"
-        mod_markup = None
-        if session_user_id:
-            mod_markup = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🚫 Ban User", callback_data=f"ban:{session_user_id}"),
-                InlineKeyboardButton(text="✅ Unban User", callback_data=f"unban:{session_user_id}")
-            ]])
+    # Generate slug first to use for local storage path
+    slug = await generate_unique_slug(db)
+    
+    # 5. Upload to storage channel / Local Storage fallback
+    file_id = None
+    file_unique_id = None
+    message_id = None
+    
+    # Always write to local storage if file is larger than 20MB (to bypass Telegram download limits later)
+    if file_size > 20 * 1024 * 1024:
+        os.makedirs("local_storage", exist_ok=True)
+        local_path = os.path.join("local_storage", slug)
+        try:
+            with open(local_path, "wb") as f:
+                f.write(optimized_bytes)
+        except Exception as local_write_err:
+            logger.error(f"Failed to write larger file locally: {local_write_err}")
+            raise HTTPException(status_code=500, detail="Local storage allocation failed.")
             
-        input_file = BufferedInputFile(optimized_bytes, filename=file.filename or "image.jpg")
-        sent_msg = await bot.send_document(
-            chat_id=STORAGE_CHANNEL_ID,
-            document=input_file,
-            caption=caption_text,
-            reply_markup=mod_markup
-        )
-        file_id = sent_msg.document.file_id if sent_msg.document else sent_msg.photo[-1].file_id
-        file_unique_id = sent_msg.document.file_unique_id if sent_msg.document else sent_msg.photo[-1].file_unique_id
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
+    # Try Telegram upload if <= 50MB (Telegram's maximum payload size for standard Bot API uploads)
+    if file_size <= 50 * 1024 * 1024:
+        try:
+            uploader_name = request.session.get("username", "Web API")
+            user_id_str = str(session_user_id) if session_user_id else "Guest"
+            caption_text = f"👤 Uploaded by: {uploader_name} (ID: {user_id_str})"
+            mod_markup = None
+            if session_user_id:
+                mod_markup = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🚫 Ban User", callback_data=f"ban:{session_user_id}"),
+                    InlineKeyboardButton(text="✅ Unban User", callback_data=f"unban:{session_user_id}")
+                ]])
+                
+            input_file = BufferedInputFile(optimized_bytes, filename=file.filename or "image.jpg")
+            sent_msg = await bot.send_document(
+                chat_id=STORAGE_CHANNEL_ID,
+                document=input_file,
+                caption=caption_text,
+                reply_markup=mod_markup
+            )
+            file_id = sent_msg.document.file_id if sent_msg.document else sent_msg.photo[-1].file_id
+            file_unique_id = sent_msg.document.file_unique_id if sent_msg.document else sent_msg.photo[-1].file_unique_id
+            message_id = sent_msg.message_id
+        except Exception as e:
+            # If large file local copy succeeded, fallback to local database-only entry
+            if file_size > 20 * 1024 * 1024:
+                file_id = f"local_{slug}"
+                file_unique_id = f"local_uid_{slug}"
+                message_id = 0
+            else:
+                raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
+    else:
+        # Over 50MB: Saved strictly local, database-only entry
+        file_id = f"local_{slug}"
+        file_unique_id = f"local_uid_{slug}"
+        message_id = 0
         
     # Check if the image already exists in the database
     stmt = select(Image).where(Image.file_unique_id == file_unique_id)
@@ -943,17 +1017,16 @@ async def api_upload_image(
         )
         
     # 6. Save DB entry
-    slug = await generate_unique_slug(db)
     delete_token = secrets.token_hex(16)
     
     new_image = Image(
         slug=slug,
         file_id=file_id,
         file_unique_id=file_unique_id,
-        message_id=sent_msg.message_id,
+        message_id=message_id,
         mime_type=file.content_type,
         file_size=file_size,
-        uploaded_by=session_user_id, # Link it to their Telegram account!
+        uploaded_by=session_user_id, # Link it to their Telegram account
         delete_token=delete_token,
         is_nsfw=is_nsfw,
         nsfw_checked=True
@@ -986,6 +1059,7 @@ async def api_get_image_metadata(slug: str, db: AsyncSession = Depends(get_db)):
         await db.commit()
         await cache_service.delete(f"image_cache:{slug}:full")
         await cache_service.delete(f"image_cache:{slug}:thumb")
+        delete_local_file(slug)
         raise HTTPException(status_code=404, detail="Image not found")
         
     return image
@@ -1008,6 +1082,7 @@ async def api_delete_image(
     await cache_service.delete(f"image_cache:{slug}:full")
     await cache_service.delete(f"image_cache:{slug}:thumb")
     await cache_service.delete(f"msg_exists:{slug}")
+    delete_local_file(slug)
     
     return {"message": f"Image '{slug}' has been successfully deleted."}
 

@@ -16,6 +16,16 @@
     position: relative;
 }
 
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-none {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
 /* ---- Section Labels ---- */
 .year-label {
     font-family: 'Outfit', sans-serif;
@@ -62,13 +72,13 @@
 .img-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 2px;
-    padding-bottom: 2px;
+    gap: 12px;
+    padding: 4px 0;
 }
 @media (min-width: 480px)  { .img-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 640px)  { .img-grid { grid-template-columns: repeat(5, 1fr); } }
-@media (min-width: 768px)  { .img-grid { grid-template-columns: repeat(6, 1fr); } }
-@media (min-width: 1024px) { .img-grid { grid-template-columns: repeat(8, 1fr); } }
+@media (min-width: 640px)  { .img-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 768px)  { .img-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 1024px) { .img-grid { grid-template-columns: repeat(6, 1fr); } }
 
 .img-cell {
     aspect-ratio: 1 / 1;
@@ -378,7 +388,7 @@
 
 /* Section headers */
 .tele-section {
-    padding: 20px 14px 10px;
+    padding: 16px 14px 10px;
 }
 .tele-section-title {
     font-family: 'Outfit', sans-serif;
@@ -530,48 +540,155 @@
 
 <!-- =================== GALLERY =================== -->
 <div class="dash-root" id="gallery-root">
-    {% set categories = [
-        ('Images', images_list, 'fa-regular fa-image', 'text-blue-400'),
-        ('Videos', videos_list, 'fa-regular fa-circle-play', 'text-amber-400'),
-        ('Documents', documents_list, 'fa-regular fa-file-pdf', 'text-emerald-400'),
-        ('Files', files_list, 'fa-regular fa-file', 'text-[#64748B]')
-    ] %}
-
     {% set total_items = images_list|length + videos_list|length + documents_list|length + files_list|length %}
 
     {% if total_items > 0 %}
-        {% for cat_name, cat_files, cat_icon, cat_color in categories %}
-            {% if cat_files|length > 0 %}
-            <div class="tele-section mb-6">
-                <div class="tele-section-title flex items-center gap-2 mb-3">
-                    <i class="{{ cat_icon }} {{ cat_color }}"></i>
-                    <span>{{ cat_name }}</span>
-                    <span class="text-[10px] text-[#64748B] font-mono font-normal">({{ cat_files|length }})</span>
-                </div>
-                
-                <!-- Horizontal scrollable row -->
-                <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-white/10" style="-webkit-overflow-scrolling: touch;">
-                    {% for img in cat_files %}
-                    <div class="img-cell shrink-0 w-28 h-28 sm:w-36 sm:h-36 rounded-2xl overflow-hidden bg-black/40 border border-white/5 hover:border-blue-500/30 transition-all cursor-pointer relative"
-                         id="cell-{{ img.slug }}"
-                         data-slug="{{ img.slug }}"
-                         data-raw="{{ domain }}/raw/{{ img.slug }}"
-                         data-thumb="/thumb/{{ img.slug }}"
-                         data-size="{{ img.file_size }}"
-                         data-mime="{{ img.mime_type or '' }}"
-                         onclick="openLightboxFromEl(this)">
-                         <img src="/thumb/{{ img.slug }}" alt="{{ img.slug }}" class="w-full h-full object-cover" loading="lazy">
-                        {% if img.mime_type and img.mime_type.startswith("video/") %}
-                        <div class="absolute bottom-1.5 right-1.5 bg-black/70 px-1.5 py-0.5 rounded text-[8px] font-semibold text-white flex items-center gap-0.5">
-                            <i class="fa-solid fa-play text-[6px]"></i>Video
+        <!-- Horizontal Tab Navigation Bar -->
+        <div class="flex items-center gap-2 overflow-x-auto px-4 py-3.5 sticky top-[68px] z-40 bg-[#05060b]/90 backdrop-filter backdrop-blur-md border-b border-white/5 scrollbar-none" style="-webkit-overflow-scrolling: touch;">
+            <button onclick="switchTab('images')" id="tab-images" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                <i class="fa-regular fa-image"></i> Images <span class="text-[10px] opacity-70">({{ images_list|length }})</span>
+            </button>
+            <button onclick="switchTab('videos')" id="tab-videos" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 bg-white/2 border border-white/5 text-[#94A3B8] hover:text-white">
+                <i class="fa-regular fa-circle-play"></i> Videos <span class="text-[10px] opacity-70">({{ videos_list|length }})</span>
+            </button>
+            <button onclick="switchTab('documents')" id="tab-documents" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 bg-white/2 border border-white/5 text-[#94A3B8] hover:text-white">
+                <i class="fa-regular fa-file-pdf"></i> Documents <span class="text-[10px] opacity-70">({{ documents_list|length }})</span>
+            </button>
+            <button onclick="switchTab('files')" id="tab-files" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 bg-white/2 border border-white/5 text-[#94A3B8] hover:text-white">
+                <i class="fa-regular fa-file"></i> Files <span class="text-[10px] opacity-70">({{ files_list|length }})</span>
+            </button>
+        </div>
+
+        <div class="p-4 sm:p-6 md:p-8">
+            <!-- Images Section (Grid) -->
+            <div id="sec-images" class="tab-content">
+                {% if images_list|length > 0 %}
+                    <div class="img-grid">
+                        {% for img in images_list %}
+                        <div class="img-cell rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all cursor-pointer relative"
+                             id="cell-{{ img.slug }}"
+                             data-slug="{{ img.slug }}"
+                             data-raw="{{ domain }}/raw/{{ img.slug }}"
+                             data-thumb="/thumb/{{ img.slug }}"
+                             data-size="{{ img.file_size }}"
+                             data-mime="{{ img.mime_type or '' }}"
+                             onclick="openLightboxFromEl(this)">
+                            <img src="/thumb/{{ img.slug }}" alt="{{ img.slug }}" class="w-full h-full object-cover" loading="lazy">
                         </div>
-                        {% endif %}
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                </div>
+                {% else %}
+                    <div class="text-center py-20 text-xs text-[#475569] font-medium tracking-wide">No images in your vault yet.</div>
+                {% endif %}
             </div>
-            {% endif %}
-        {% endfor %}
+
+            <!-- Videos Section (Grid) -->
+            <div id="sec-videos" class="tab-content hidden">
+                {% if videos_list|length > 0 %}
+                    <div class="img-grid">
+                        {% for img in videos_list %}
+                        <div class="img-cell rounded-2xl border border-white/5 hover:border-amber-500/30 transition-all cursor-pointer relative"
+                             id="cell-{{ img.slug }}"
+                             data-slug="{{ img.slug }}"
+                             data-raw="{{ domain }}/raw/{{ img.slug }}"
+                             data-thumb="/thumb/{{ img.slug }}"
+                             data-size="{{ img.file_size }}"
+                             data-mime="{{ img.mime_type or '' }}"
+                             onclick="openLightboxFromEl(this)">
+                            <img src="/thumb/{{ img.slug }}" alt="{{ img.slug }}" class="w-full h-full object-cover" loading="lazy">
+                            <div class="absolute bottom-2 right-2 bg-black/70 px-2 py-0.5 rounded-lg text-[9px] font-semibold text-white flex items-center gap-1">
+                                <i class="fa-solid fa-play text-[7px] text-amber-400"></i>Play
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-20 text-xs text-[#475569] font-medium tracking-wide">No videos in your vault yet.</div>
+                {% endif %}
+            </div>
+
+            <!-- Documents Section (List) -->
+            <div id="sec-documents" class="tab-content hidden">
+                {% if documents_list|length > 0 %}
+                    <div class="flex flex-col gap-2.5 max-w-4xl mx-auto">
+                        {% for img in documents_list %}
+                        <div class="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.06] hover:border-emerald-500/30 transition-all cursor-pointer"
+                             id="cell-{{ img.slug }}"
+                             data-slug="{{ img.slug }}"
+                             data-raw="{{ domain }}/raw/{{ img.slug }}"
+                             data-thumb="/thumb/{{ img.slug }}"
+                             data-size="{{ img.file_size }}"
+                             data-mime="{{ img.mime_type or '' }}"
+                             onclick="openLightboxFromEl(this)">
+                            <div class="flex items-center gap-3.5 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                    <i class="fa-regular fa-file-pdf text-lg"></i>
+                                </div>
+                                <div class="min-w-0 flex flex-col">
+                                    <span class="text-sm font-bold text-white truncate font-mono tracking-wide">{{ img.slug }}</span>
+                                    <span class="text-[10px] text-[#475569] font-medium uppercase mt-0.5">
+                                        {% if img.file_size >= 1048576 %}
+                                            {{ (img.file_size / 1048576)|round(2) }} MB
+                                        {% elif img.file_size >= 1024 %}
+                                            {{ (img.file_size / 1024)|round(1) }} KB
+                                        {% else %}
+                                            {{ img.file_size }} B
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-chevron-right text-[#475569] text-xs"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-20 text-xs text-[#475569] font-medium tracking-wide">No documents in your vault yet.</div>
+                {% endif %}
+            </div>
+
+            <!-- Files Section (List) -->
+            <div id="sec-files" class="tab-content hidden">
+                {% if files_list|length > 0 %}
+                    <div class="flex flex-col gap-2.5 max-w-4xl mx-auto">
+                        {% for img in files_list %}
+                        <div class="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.06] hover:border-blue-500/20 transition-all cursor-pointer"
+                             id="cell-{{ img.slug }}"
+                             data-slug="{{ img.slug }}"
+                             data-raw="{{ domain }}/raw/{{ img.slug }}"
+                             data-thumb="/thumb/{{ img.slug }}"
+                             data-size="{{ img.file_size }}"
+                             data-mime="{{ img.mime_type or '' }}"
+                             onclick="openLightboxFromEl(this)">
+                            <div class="flex items-center gap-3.5 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#94A3B8] shrink-0">
+                                    <i class="fa-regular fa-file text-lg"></i>
+                                </div>
+                                <div class="min-w-0 flex flex-col">
+                                    <span class="text-sm font-bold text-white truncate font-mono tracking-wide">{{ img.slug }}</span>
+                                    <span class="text-[10px] text-[#475569] font-medium uppercase mt-0.5">
+                                        {% if img.file_size >= 1048576 %}
+                                            {{ (img.file_size / 1048576)|round(2) }} MB
+                                        {% elif img.file_size >= 1024 %}
+                                            {{ (img.file_size / 1024)|round(1) }} KB
+                                        {% else %}
+                                            {{ img.file_size }} B
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-chevron-right text-[#475569] text-xs"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-20 text-xs text-[#475569] font-medium tracking-wide">No other files in your vault yet.</div>
+                {% endif %}
+            </div>
+        </div>
     {% else %}
         <!-- Empty State -->
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 24px;text-align:center;">
@@ -818,6 +935,34 @@
     })();
 
     // ============================================================
+    // TAB SWITCHER
+    // ============================================================
+    function switchTab(tabName) {
+        // Hide all contents
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        
+        // Show target content
+        const targetSec = document.getElementById('sec-' + tabName);
+        if (targetSec) targetSec.classList.remove('hidden');
+        
+        // Reset tabs style
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.className = 'tab-btn px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 bg-white/2 border border-white/5 text-[#94A3B8] hover:text-white';
+        });
+        
+        // Style selected tab
+        const activeBtn = document.getElementById('tab-' + tabName);
+        if (activeBtn) {
+            let activeClass = 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
+            if (tabName === 'videos') activeClass = 'bg-amber-500/10 border border-amber-500/20 text-amber-400';
+            if (tabName === 'documents') activeClass = 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400';
+            if (tabName === 'files') activeClass = 'bg-slate-500/10 border border-slate-500/20 text-slate-400';
+            
+            activeBtn.className = `tab-btn active px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${activeClass}`;
+        }
+    }
+
+    // ============================================================
     // QUOTA BAR + COUNTDOWN
     // ============================================================
     const qBar = document.getElementById('tele-quota-bar');
@@ -935,7 +1080,12 @@
 
     // Navigation for Lightbox
     function navigateLightbox(direction) {
-        const cells = Array.from(document.querySelectorAll('.img-cell'));
+        const activeTab = document.querySelector('.tab-btn.active').id.replace('tab-', '');
+        const activeSec = document.getElementById('sec-' + activeTab);
+        if (!activeSec) return;
+        
+        // Select all elements inside the active section that have data-slug
+        const cells = Array.from(activeSec.querySelectorAll('[data-slug]'));
         if (cells.length <= 1) return;
         
         let currentIndex = cells.findIndex(cell => cell.dataset.slug === lbCurrentSlug);

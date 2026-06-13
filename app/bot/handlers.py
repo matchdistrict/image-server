@@ -67,6 +67,8 @@ async def check_user_limit(db, user_id: int, incoming_size: int = 0) -> bool:
     return (today_size + incoming_size) <= (1024 * 1024 * 1024)
 
 async def check_message_exists(chat_id: int | str, message_id: int, slug: str) -> bool:
+    if message_id == 0:
+        return True
     cache_key = f"msg_exists:{slug}"
     cached = await cache_service.get(cache_key)
     if cached == b"1":
@@ -193,10 +195,13 @@ async def process_media_group(media_group_id: str):
                 results.append((file_name, "Missing file payload.", False))
                 continue
                 
-            # Enforce 10MB size limit (20MB for admins - maximum download size for Telegram Bot API files)
+            # Enforce 10MB size limit (20MB download limit for Telegram Bot API files)
             max_size = 20 * 1024 * 1024 if is_admin else 10 * 1024 * 1024
             if file_size > max_size:
-                results.append((file_name, f"Exceeds limit ({max_size // (1024*1024)}MB).", False))
+                if is_admin:
+                    results.append((file_name, "Exceeds bot limit (20MB). Use Web Dashboard to upload files up to 2GB.", False))
+                else:
+                    results.append((file_name, f"Exceeds limit ({max_size // (1024*1024)}MB).", False))
                 continue
 
             # Duplicate Upload Check
@@ -661,10 +666,13 @@ async def media_upload_handler(message: Message):
             await message.reply("❌ Daily upload limit reached. You can upload up to 1 GB of files per day.")
             return
 
-        # Enforce size limit (20MB for admins, 10MB for others)
+        # Enforce size limit (20MB download limit for Telegram Bot API files)
         max_size = 20 * 1024 * 1024 if is_admin else 10 * 1024 * 1024
         if file_size > max_size:
-            await message.reply(f"❌ File size exceeds the limit of {max_size // (1024 * 1024)}MB.")
+            if is_admin:
+                await message.reply("❌ Telegram Bot API limits bot downloads to 20MB. Please use the Web Dashboard to upload larger files (up to 2GB).")
+            else:
+                await message.reply(f"❌ File size exceeds the limit of {max_size // (1024 * 1024)}MB.")
             return
 
         # Check if the asset already exists in the database
