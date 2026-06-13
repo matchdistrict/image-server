@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Asset Preview - The Vault{% endblock %}
+{% block title %}Asset Preview - Secret Society Vault{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl w-full flex flex-col gap-5 relative z-10 px-2 sm:px-0">
@@ -64,7 +64,7 @@
             </div>
 
             <!-- Links Share Area -->
-            {% set embed_val = '<img src="' ~ domain ~ '/raw/' ~ image.slug ~ '" alt="The Vault Asset">' %}
+            {% set embed_val = '<img src="' ~ domain ~ '/raw/' ~ image.slug ~ '" alt="Secret Society Vault Asset">' %}
             {% if image.mime_type and image.mime_type.startswith("video/") %}
                 {% set embed_val = '<video src="' ~ domain ~ '/raw/' ~ image.slug ~ '" controls style="max-width:100%"></video>' %}
             {% elif image.mime_type and not image.mime_type.startswith("image/") %}

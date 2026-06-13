@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - The Vault{% endblock %}
+{% block title %}Dashboard - Secret Society Vault{% endblock %}
 
 {% block head %}
 <style>
@@ -8,22 +8,21 @@
    DASHBOARD — Zero-Gap Full-Width Gallery Layout
    ============================================================ */
 
+/* Hide scrollbars globally */
+::-webkit-scrollbar {
+    display: none;
+}
+* {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
 /* The <main> wrapper in base.html has no padding when logged in.
    We use this class on our root container so it spans full width. */
 .dash-root {
     width: 100%;
     min-height: 100%;
     position: relative;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.scrollbar-none::-webkit-scrollbar {
-    display: none;
-}
-/* Hide scrollbar for IE, Edge and Firefox */
-.scrollbar-none {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
 }
 
 /* ---- Section Labels ---- */
@@ -779,6 +778,11 @@
             <img src="{{ avatar_url }}" alt="avatar" class="tele-avatar">
             <div class="tele-username">{{ username }}</div>
             <div class="tele-role-badge">{{ user_stats.role }}</div>
+            {% if user_id in admin_user_ids %}
+            <a href="/admin?token={{ token }}" class="mt-3.5 bg-blue-500/10 hover:bg-blue-500/20 text-[#60A5FA] border border-blue-500/20 px-4 py-2 rounded-xl text-[11px] font-bold transition-all w-full max-w-[200px] text-center flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/5">
+                <i class="fa-solid fa-shield-halved"></i> Account Admin Center
+            </a>
+            {% endif %}
         </div>
 
         <!-- Telegram Identity -->
@@ -874,7 +878,7 @@
                     <span class="tele-card-label">Total Files</span>
                     <span class="tele-card-value">{{ images|length }}</span>
                 </div>
-                <div class="tele-card full">
+                <div class="tele-card">
                     <span class="tele-card-label">Total Storage Used</span>
                     <span class="tele-card-value accent">
                         {% if user_stats.total_storage_bytes >= 1073741824 %}
@@ -1065,6 +1069,18 @@
         openLightbox(el.dataset.slug, el.dataset.raw, el.dataset.thumb, parseInt(el.dataset.size, 10), el.dataset.mime || '', el.dataset.filename || '');
     }
 
+    // Prevent main body scrolling behavior on touchmove when modals are open on iOS
+    document.addEventListener('touchmove', function(e) {
+        const isLightboxOpen = document.getElementById('lightbox').classList.contains('open');
+        const isTelePanelOpen = document.getElementById('tele-panel').classList.contains('open');
+        if (isLightboxOpen || isTelePanelOpen) {
+            // Allow scrolling inside options or modal content, but lock body bounces
+            if (!e.target.closest('#lb-options') && !e.target.closest('#lb-embed-wrap') && !e.target.closest('.tele-body')) {
+                e.preventDefault();
+            }
+        }
+    }, { passive: false });
+
     function openLightbox(slug, rawUrl, thumbUrl, fileSize, mimeType, filename) {
         lbCurrentSlug = slug;
         lbCurrentRaw  = rawUrl;
@@ -1189,18 +1205,6 @@
         }
     }
 
-    // Prevent main body scrolling behavior on touchmove when modals are open on iOS
-    document.addEventListener('touchmove', function(e) {
-        const isLightboxOpen = document.getElementById('lightbox').classList.contains('open');
-        const isTelePanelOpen = document.getElementById('tele-panel').classList.contains('open');
-        if (isLightboxOpen || isTelePanelOpen) {
-            // Allow scrolling inside options or modal content, but lock body bounces
-            if (!e.target.closest('#lb-options') && !e.target.closest('#lb-embed-wrap') && !e.target.closest('.tele-body')) {
-                e.preventDefault();
-            }
-        }
-    }, { passive: false });
-
     // Keyboard support
     document.addEventListener('keydown', e => {
         if (!document.getElementById('lightbox').classList.contains('open')) return;
@@ -1246,7 +1250,7 @@
         
         let embed = '';
         if (mime.startsWith('image/')) {
-            embed = `<img src="${lbCurrentRaw}" alt="The Vault Asset" style="max-width:100%">`;
+            embed = `<img src="${lbCurrentRaw}" alt="Secret Society Vault Asset" style="max-width:100%">`;
         } else if (mime.startsWith('video/')) {
             embed = `<video src="${lbCurrentRaw}" controls style="max-width:100%"></video>`;
         } else {
