@@ -12,7 +12,7 @@
     <!-- Title and Description -->
     <h1 class="font-outfit text-xl font-bold tracking-tight text-white glow-text text-center">Gallery Locked</h1>
     <p class="text-xs text-[#64748B] mt-1.5 text-center px-4">
-        Enter the password configured via the Telegram Bot to unlock your gallery.
+        Enter the 4-digit PIN configured via the Telegram Bot to unlock your gallery.
     </p>
 
     <!-- Form Container -->
@@ -26,11 +26,11 @@
             {% endif %}
 
             <div class="flex flex-col items-center gap-3.5">
-                <label class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Enter Password / PIN</label>
+                <label class="text-[9px] font-bold text-[#64748B] uppercase tracking-wider">Enter PIN</label>
                 
                 <div class="flex justify-center gap-2" id="otp-inputs-container">
-                    {% for i in range(password_length) %}
-                    <input type="text" maxlength="1" 
+                    {% for i in range(4) %}
+                    <input type="tel" maxlength="1" pattern="[0-9]*" inputmode="numeric"
                            class="otp-digit w-9 h-11 text-center text-base font-bold text-white bg-black/40 border border-white/10 rounded-xl focus:border-blue-500/50 focus:bg-blue-500/5 focus:outline-none transition-all select-none"
                            data-index="{{ i }}" autocomplete="off">
                     {% endfor %}
@@ -39,10 +39,6 @@
                 <!-- Hidden real password field -->
                 <input type="hidden" name="password" id="real-password">
             </div>
-
-            <button type="submit" class="w-full btn-cta text-white px-4 py-2 rounded-xl text-xs font-bold transition-all min-h-[38px] flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-2">
-                <i class="fa-solid fa-unlock-keyhole text-[10px]"></i>Unlock Gallery
-            </button>
         </form>
     </div>
     
@@ -71,7 +67,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     inputs.forEach((input, index) => {
         input.addEventListener("input", (e) => {
-            const val = e.target.value;
+            const val = e.target.value.replace(/[^0-9]/g, ''); // Ensure only numbers
+            input.value = val;
+            
             if (val.length > 0) {
                 // Focus next
                 if (index < inputs.length - 1) {
@@ -94,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         input.addEventListener("paste", (e) => {
             e.preventDefault();
-            const pastedData = (e.clipboardData || window.clipboardData).getData("text").trim();
+            const pastedData = (e.clipboardData || window.clipboardData).getData("text").trim().replace(/[^0-9]/g, '');
             const chars = pastedData.split("").slice(0, inputs.length);
             
             chars.forEach((char, i) => {

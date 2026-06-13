@@ -130,7 +130,7 @@ async def process_media_group(media_group_id: str):
         # 3. Accumulated Limit Check (bypassed for admins)
         if not is_admin:
             IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-            now_ist = datetime.datetime.now(IST)
+            now_ist = datetime.timezone.now(IST)
             today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
             today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
             
@@ -283,7 +283,7 @@ async def start_command(message: Message):
         "/help - How to use the bot\n"
         "/stats - Quick bot storage metrics\n"
         "/myuploads - View your hosted uploads\n"
-        "/lock &lt;password&gt; - Lock your web gallery"
+        "/lock &lt;PIN&gt; - Lock your web gallery with a 4-digit PIN"
     )
     await message.reply(welcome_text)
 
@@ -305,7 +305,7 @@ async def help_command(message: Message):
         "4. You can send multiple images at a time (albums up to 10 files).\n"
         "5. You will receive a direct preview link, a raw image URL, and a deletion token.\n\n"
         "<b>Security Options:</b>\n"
-        "• <code>/lock &lt;password&gt;</code> - Secure your web gallery dashboard with a custom password/PIN.\n\n"
+        "• <code>/lock &lt;4-digit PIN&gt;</code> - Secure your web gallery dashboard with a numeric 4-digit PIN.\n\n"
         "<b>Upload Limits:</b>\n"
         f"- Up to {USER_LIMIT} uploads per day (resets daily at 12:00 AM IST)."
     )
@@ -323,7 +323,7 @@ async def stats_command(message: Message):
         
         # Daily Uploads (since 12:00 AM IST)
         IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
-        now_ist = datetime.datetime.now(IST)
+        now_ist = datetime.timezone.now(IST)
         today_midnight_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
         today_midnight_utc_naive = today_midnight_ist.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         
@@ -484,12 +484,12 @@ async def protection_command(message: Message):
 async def lock_command(message: Message):
     parts = message.text.strip().split(maxsplit=1)
     if len(parts) < 2:
-        await message.reply("🔑 <b>How to lock your gallery:</b>\nUse <code>/lock &lt;password&gt;</code> to set a password (e.g., <code>/lock 1456</code>).")
+        await message.reply("🔑 <b>How to lock your gallery:</b>\nUse <code>/lock &lt;4-digit PIN&gt;</code> to set a PIN (e.g., <code>/lock 1456</code>).")
         return
         
     password = parts[1].strip()
-    if not password:
-        await message.reply("❌ Password cannot be empty.")
+    if not password.isdigit() or len(password) != 4:
+        await message.reply("❌ PIN/Password must be a 4-digit number (e.g., <code>/lock 1456</code>).")
         return
         
     user_id = message.from_user.id
@@ -507,7 +507,7 @@ async def lock_command(message: Message):
             
         await db.commit()
         
-    await message.reply(f"🔒 <b>Gallery locked successfully!</b>\nYour password has been set. You will be asked for this password when opening the gallery web page.")
+    await message.reply(f"🔒 <b>Gallery locked successfully!</b>\nYour PIN has been set. You will be asked for this PIN when opening the gallery web page.")
 
 @router.chat_join_request()
 async def handle_chat_join_request(event: ChatJoinRequest):

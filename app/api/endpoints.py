@@ -214,9 +214,6 @@ async def homepage_view(request: Request, db: AsyncSession = Depends(get_db)):
                 }
             )
 
-        # Clear unlock state from session immediately so the next reload/visit locks it again
-        request.session.pop("gallery_unlocked", None)
-
         # Query all images uploaded by this user
         stmt = select(Image).where(Image.uploaded_by == user_id).order_by(Image.created_at.desc())
         res = await db.execute(stmt)
@@ -848,7 +845,7 @@ async def api_upload_image(
         if not await check_ip_rate_limit(ip, GUEST_LIMIT):
             raise HTTPException(status_code=429, detail="Daily rate limit exceeded for guest upload.")
             
-    # Check User daily limit if authenticated via session
+    # Check Daily upload limit
     if session_user_id and not is_admin_session:
         IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
         now_ist = datetime.datetime.now(IST)
