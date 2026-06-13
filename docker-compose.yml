@@ -6,12 +6,23 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # Telegram Bot
       - BOT_TOKEN=${BOT_TOKEN}
       - STORAGE_CHANNEL_ID=${STORAGE_CHANNEL_ID}
+      - BOT_USERNAME=${BOT_USERNAME:-picturemaniabot}
+      # Telegram MTProto (Telethon)
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELETHON_SESSION_STRING=${TELETHON_SESSION_STRING:-}
+      # Admin
+      - ADMIN_USER_IDS=${ADMIN_USER_IDS:-}
+      # Database & Cache
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/tgcloud
       - REDIS_URL=redis://cache:6379/0
+      # App
       - SECRET_KEY=${SECRET_KEY:-super-secret-production-key}
       - DOMAIN=${DOMAIN:-http://localhost:8000}
+      - LOGO_URL=${LOGO_URL:-}
     depends_on:
       - db
       - cache
